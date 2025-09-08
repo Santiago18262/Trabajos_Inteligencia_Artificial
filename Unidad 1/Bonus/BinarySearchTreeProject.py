@@ -34,7 +34,7 @@ class BST:
         if not self.raiz:
             return
 
-        niveles = self._get_niveles([self.raiz])
+        niveles = self.Get_niveles([self.raiz])
         ancho = 2 ** len(niveles)  # se calcula el ancho para el nivel más profundo
 
         for i, nivel in enumerate(niveles):
@@ -47,7 +47,7 @@ class BST:
                     linea += espacio + str(nodo.valor) + espacio
             print(linea)
 
-    def _get_niveles(self, nodos):
+    def Get_niveles(self, nodos):
         """Devuelve una lista de niveles con nodos y Nones donde no hay hijos."""
         niveles = []
         while any(n is not None for n in nodos):
