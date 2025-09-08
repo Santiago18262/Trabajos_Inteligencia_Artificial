@@ -15,19 +15,19 @@ class BST:
         if self.raiz is None:
             self.raiz = Nodo(valor)
         else:
-            self._insert_recursivo(self.raiz, valor)
+            self.Insert_recursivo(self.raiz, valor)
 
-    def _insert_recursivo(self, nodo_actual, valor):
+    def Insert_recursivo(self, nodo_actual, valor):
         if valor < nodo_actual.valor:
             if nodo_actual.izquierda is None:
                 nodo_actual.izquierda = Nodo(valor)
             else:
-                self._insert_recursivo(nodo_actual.izquierda, valor)
+                self.Insert_recursivo(nodo_actual.izquierda, valor)
         else:
             if nodo_actual.derecha is None:
                 nodo_actual.derecha = Nodo(valor)
             else:
-                self._insert_recursivo(nodo_actual.derecha, valor)
+                self.Insert_recursivo(nodo_actual.derecha, valor)
 
     # Se crea el metodo para imprimir el árbol
     def PrintTree(self):
