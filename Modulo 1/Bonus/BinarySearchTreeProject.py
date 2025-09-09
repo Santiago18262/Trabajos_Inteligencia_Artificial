@@ -11,26 +11,26 @@ class BST:
         self.raiz = None
 
     # Se crea el metodo para insertar nodos
-    def Insert(self, valor):
+    def insert(self, valor):
         if self.raiz is None:
             self.raiz = Nodo(valor)
         else:
-            self.Insert_recursivo(self.raiz, valor)
+            self.insert_recursivo(self.raiz, valor)
 
-    def Insert_recursivo(self, nodo_actual, valor):
+    def insert_recursivo(self, nodo_actual, valor):
         if valor < nodo_actual.valor:
             if nodo_actual.izquierda is None:
                 nodo_actual.izquierda = Nodo(valor)
             else:
-                self.Insert_recursivo(nodo_actual.izquierda, valor)
+                self.insert_recursivo(nodo_actual.izquierda, valor)
         else:
             if nodo_actual.derecha is None:
                 nodo_actual.derecha = Nodo(valor)
             else:
-                self.Insert_recursivo(nodo_actual.derecha, valor)
+                self.insert_recursivo(nodo_actual.derecha, valor)
 
     # Se crea el metodo para imprimir el árbol
-    def PrintTree(self):
+    def printTree(self):
         if not self.raiz:
             return
 
@@ -47,7 +47,7 @@ class BST:
                     linea += espacio + str(nodo.valor) + espacio
             print(linea)
 
-    def Get_niveles(self, nodos):
+    def get_niveles(self, nodos):
         """Devuelve una lista de niveles con nodos y Nones donde no hay hijos."""
         niveles = []
         while any(n is not None for n in nodos):
