@@ -34,7 +34,7 @@ class BST:
         if not self.raiz:
             return
 
-        niveles = self.Get_niveles([self.raiz])
+        niveles = self.get_niveles([self.raiz])
         ancho = 2 ** len(niveles)  # se calcula el ancho para el nivel más profundo
 
         for i, nivel in enumerate(niveles):
@@ -69,18 +69,18 @@ arbol = BST()
 
 # Pedir nodo raíz primero
 raiz = int(input("Ingrese el número raíz del árbol: "))
-arbol.Insert(raiz)
+arbol.insert(raiz)
 
-# Insertar más números
+# insertar más números
 while True:
     numero = input("Ingrese un número para el árbol (o 'fin' para terminar): ")
     if numero.lower() == 'fin':
         break
     if numero.isdigit():
-        arbol.Insert(int(numero))
+        arbol.insert(int(numero))
     else:
         print("Ingrese un número válido.")
 
 # Imprimir árbol
 print("\nÁrbol Binario de Búsqueda:")
-arbol.PrintTree()
+arbol.printTree()
