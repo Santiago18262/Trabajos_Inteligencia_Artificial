@@ -6,6 +6,10 @@ ESTADO_ACEPTACION = (1, 2, 3,
                      7, 8, 0)
 
 # Función para imprimir el estado del puzzle
+"""
+Se imprime el estado del puzzle en un formato 3x3,
+reemplazando el 0 con un espacio en blanco para mayor claridad.
+"""
 def imprimir_puzzle(estado):
     for i in range(0, 9, 3):
         fila = estado[i:i+3]
@@ -78,6 +82,10 @@ def bfs(estado_inicial):
     return None # Si no se encuentra solución
 
 # Función para mostrar el camino paso a paso
+"""
+Muestra cada paso del camino desde el estado inicial hasta el estado objetivo,
+imprimiendo el estado del puzzle en cada paso.Si no se encuentra solución, informa al usuario.
+"""
 def mostrar_solucion(camino):
     if not camino:
         print("No se encontró solución.")
