@@ -35,7 +35,6 @@ class BST:
             return
 
         niveles = self.get_niveles([self.raiz]) # obtiene los niveles del árbol
-        ancho = 2 ** len(niveles)  # se calcula el ancho para el nivel más profundo
 
         for i, nivel in enumerate(niveles): # Recorre cada nivel
             espacio = " " * (2 ** (len(niveles) - i - 1)) # Calcula el espacio para centrar los nodos
