@@ -1,1 +1,2 @@
+*.pkl filter=lfs diff=lfs merge=lfs -text
 Modulo[[:space:]]2/Sistema[[:space:]]De[[:space:]]Recomendación/DataCleaner/model/similarity.pkl filter=lfs diff=lfs merge=lfs -text
