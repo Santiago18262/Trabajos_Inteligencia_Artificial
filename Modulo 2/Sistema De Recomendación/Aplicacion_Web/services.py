@@ -105,7 +105,7 @@ def recommend(movie_title: str, movies: pd.DataFrame, similarity) -> tuple[list[
     recommended_movie_posters: list[Image.Image] = []  # Pósters correspondientes
 
     # Recorre las 5 películas más similares (omitiendo la primera, que es la misma)
-    for i in distances[1:11]:
+    for i in distances[1:6]:
         # Obtiene el ID de la película similar
         movie_id = movies.iloc[i[0]].movie_id
 
