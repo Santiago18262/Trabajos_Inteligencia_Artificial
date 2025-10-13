@@ -1,149 +1,312 @@
-# Estas librerías se deben instalar si no las tiene. Use pip install pandas numpy nltk scikit-learn
-import tkinter as tk  # Para la interfaz gráfica
-from tkinter import filedialog, messagebox, ttk  # Componentes adicionales de la interfaz
-import pandas as pd  # Para manipular el dataset en formato tabla
-import numpy as np  # Para operaciones matemáticas y de arrays
-import re  # Para expresiones regulares, limpieza de texto
-import unicodedata  # Para eliminar acentos
-import nltk  # Para procesamiento de lenguaje natural
-from nltk.corpus import stopwords  # Palabras vacías (stopwords) en español
-from sklearn.feature_extraction.text import TfidfVectorizer  # Vectorización TF-IDF
-from pathlib import Path # Para trabajar con rutas de archivos
+import os, re, unicodedata
+from pathlib import Path
+import numpy as np, pandas as pd, nltk
+from sklearn.feature_extraction.text import TfidfVectorizer
 
-nltk.download('stopwords')  # Descarga lista de palabras vacías
-nltk.download('punkt')  # Tokenizador de palabras
+from Config_regex import URL_RE, ADJUNTO_RE, EXT_PELIGROSAS, EXT_COMUNES
 
-# Cargar las stopwords en español
-stop_words = set(stopwords.words('spanish'))
+def quitar_acentos(t: str) -> str:
+    t = unicodedata.normalize('NFKD', t)
+    return t.encode('ascii', 'ignore').decode('utf-8')
 
-# Función para eliminar acentos del texto
-def quitar_acentos(texto):
-    texto = unicodedata.normalize('NFKD', texto)
-    texto = texto.encode('ascii', 'ignore').decode('utf-8')
-    return str(texto)
+def limpiar_texto(t: str) -> str:
+    t = (t or "").lower().strip()
+    t = quitar_acentos(t)
+    t = re.sub(r"[^a-z0-9\s]", " ", t)
+    return re.sub(r"\s+", " ", t).strip()
 
-# Función para limpiar el texto: pasar a minúsculas, quitar acentos y símbolos no alfanuméricos
-def limpiar_texto(texto):
-    texto = texto.lower().strip()
-    texto = quitar_acentos(texto)
-    texto = re.sub(r"[^a-z0-9\s]", "", texto)
-    return texto
+def dominio_de_email(remitente: str) -> str:
+    r = (remitente or "").strip().lower()
+    if "@" in r:
+        return r.split("@", 1)[-1]
+    return ""
 
-# Cargar el dataset CSV (debe estar en la ruta indicada o cambiar la ruta)
-csv_path = Path(__file__).resolve().parent / "data" / "spam_ham_dataset2.csv"
-df = pd.read_csv(csv_path)
-    
-# Normalizar etiquetas ('spam' o 'ham') y limpiar los mensajes
-df["etiqueta"] = df["etiqueta"].astype(str).str.lower().str.strip()
-df["mensaje_limpio"] = df["mensaje"].astype(str).apply(limpiar_texto)
+def tokens_dominio(dom: str) -> list[str]:
+    """
+    Convierte un dominio 'sub.dom.tld' en tokens útiles:
+    from_dom_dom, from_sub_sub, from_tld_tld
+    """
+    if not dom:
+        return []
+    dom = dom.replace("-", " ")
+    partes = dom.split(".")
+    toks = []
+    if len(partes) >= 1:
+        toks.append(f"from_dom_{limpiar_texto(partes[-2] if len(partes)>=2 else partes[0])}")
+    if len(partes) >= 2:
+        toks.append(f"from_tld_{limpiar_texto(partes[-1])}")
+    if len(partes) >= 3:
+        toks.append(f"from_sub_{limpiar_texto(partes[0])}")
+    return toks
 
-# Vectorizar el texto usando TF-IDF (en inglés por defecto)
-vectorizer = TfidfVectorizer(stop_words="english")
-X_tfidf = vectorizer.fit_transform(df["mensaje_limpio"])
-palabras = vectorizer.get_feature_names_out()  # Lista de palabras usadas
+def extraer_enlaces(texto: str) -> list[str]:
+    return URL_RE.findall(texto or "")
 
-# Separar mensajes spam y no spam (ham)
-spam = df[df["etiqueta"] == "spam"]
-ham = df[df["etiqueta"] == "ham"]
+def tokens_enlace(url: str) -> list[str]:
+    """
+    A partir de una URL genera tokens de dominio/tld generales.
+    """
+    toks = ["has_url"]
+    try:
+        # Extraer dominio de forma simple
+        m = re.search(r"https?://([^/\s:]+)", url, re.I)
+        if not m:
+            return toks
+        host = m.group(1).lower()
+        host = host.replace("www.", "")
+        partes = host.split(".")
+        if len(partes) >= 1:
+            toks.append(f"url_dom_{limpiar_texto(partes[-2] if len(partes)>=2 else partes[0])}")
+        if len(partes) >= 2:
+            toks.append(f"url_tld_{limpiar_texto(partes[-1])}")
+        if len(partes) >= 3:
+            toks.append(f"url_sub_{limpiar_texto(partes[0])}")
+    except Exception:
+        pass
+    return toks
 
-# Calcular probabilidades base de spam y ham
-P_spam = len(spam) / len(df)
-P_no_spam = len(ham) / len(df)
+def extraer_adjuntos(texto: str) -> list[tuple[str,str]]:
+    adjuntos = []
+    for m in ADJUNTO_RE.finditer(texto or ""):
+        nombre = (m.group("name") or "").strip()
+        ext = (m.group("ext") or "").lower().strip()
+        if nombre and ext:
+            adjuntos.append((nombre, ext))
+    return adjuntos
 
-# Vectorizar ambos subconjuntos
-X_spam = vectorizer.transform(spam["mensaje_limpio"])
-X_ham = vectorizer.transform(ham["mensaje_limpio"])
+def tokens_adjuntos(adjuntos: list[tuple[str,str]]) -> list[str]:
+    toks = []
+    if adjuntos:
+        toks.append("has_attachment")
+    for nombre, ext in adjuntos:
+        # extensión
+        toks.append(f"att_ext_{ext}")
+        if ext in EXT_PELIGROSAS:
+            toks.append("att_ext_dangerous")
+        # palabras del nombre (separar por no-alfa)
+        base = limpiar_texto(re.sub(r"\.[a-z0-9]{1,6}$", "", nombre, flags=re.I))
+        if base:
+            for w in base.split():
+                # evita palabras demasiado cortas
+                if len(w) >= 3:
+                    toks.append(f"att_name_{w}")
+    return toks
 
-# Suavizado (Laplace) para evitar ceros
-alpha = 1
-P_caracteristicas_spam = (np.sum(X_spam.toarray(), axis=0) + alpha) / (np.sum(X_spam.toarray()) + alpha * len(palabras))
-P_caracteristicas_no_spam = (np.sum(X_ham.toarray(), axis=0) + alpha) / (np.sum(X_ham.toarray()) + alpha * len(palabras))
 
-# Función para clasificar un correo como spam o ham usando Naive Bayes con log-probabilidades
-def clasificar_correo(texto):
-    texto = limpiar_texto(texto)
-    texto_vectorizado = vectorizer.transform([texto]).toarray()[0]
-    log_P_spam = np.log(P_spam) + np.sum(np.log(P_caracteristicas_spam) * texto_vectorizado)
-    log_P_no_spam = np.log(P_no_spam) + np.sum(np.log(P_caracteristicas_no_spam) * texto_vectorizado)
-    return "spam" if log_P_spam > log_P_no_spam else "ham"
+class EmailSpamClassifier:
+    """
+    Clasificador Naive Bayes multinomial sobre TF-IDF.
+    Ahora incorpora tokens de:
+      - remitente (dominio, tld, subdominio)
+      - asunto
+      - contenido
+      - enlaces (dominio, tld, subdominio, has_url)
+      - adjuntos (has_attachment, att_ext_*, att_ext_dangerous, att_name_*)
+    """
 
-# Evaluación básica del modelo
-df["prediccion"] = df["mensaje_limpio"].apply(clasificar_correo)
-precision = np.mean(df["prediccion"] == df["etiqueta"])  # Exactitud del modelo
-recuperacion = np.sum((df["prediccion"] == "spam") & (df["etiqueta"] == "spam")) / df["etiqueta"].value_counts().get("spam", 1)  # Recall
+    def __init__(self, csv_path=None):
+        # Recursos NLTK (idempotente)
+        try:
+            nltk.data.find("corpora/stopwords")
+        except LookupError:
+            nltk.download("stopwords")
+        try:
+            nltk.data.find("tokenizers/punkt")
+        except LookupError:
+            nltk.download("punkt")
 
-#INTERFAZ GRAFICA#
-ventana = tk.Tk()
-ventana.title("Detector de Spam - Interfaz")
-ventana.geometry("1500x750")
+        self.precision = 0.0
+        self.recall_spam = 0.0
 
-# Contenedor principal
-frame = tk.Frame(ventana)
-frame.pack(pady=10, padx=10, fill="both", expand=True)
+        # Ruta por defecto
+        if csv_path is None:
+            try:
+                base = Path(__file__).resolve().parent
+            except NameError:
+                base = Path(os.getcwd())
+            csv_path = base / "datasets" / "spam_ham_dataset2.csv"
 
-#Panel izquierdo: caja de texto para ingresar mensaje#
-entrada_texto = tk.Text(frame, height=20, width=60)
-entrada_texto.pack(side="left", padx=10, pady=10, fill="both", expand=True)
+        self.csv_path = Path(csv_path)
 
-#Panel central: botones y resultados#
-panel_centro = tk.Frame(frame)
-panel_centro.pack(side="left", padx=10)
+        # Cargar dataset o fallback
+        if self.csv_path.exists():
+            df = pd.read_csv(self.csv_path)
+        else:
+            df = pd.DataFrame({
+                "remitente": [
+                    "promos@casino-oro.fun",
+                    "maria.garcia@empresa.com",
+                    "soporte@seguridadbancaria-alerta.com",
+                    "contabilidad@empresa.com",
+                ],
+                "asunto": [
+                    "100 tiradas gratis sin depósito",
+                    "Reunión semanal del equipo",
+                    "Verifica tu cuenta urgente",
+                    "Reporte mensual",
+                ],
+                "mensaje": [
+                    "Regístrate y gana premios al instante. premios.bat",  # añadimos .bat aquí
+                    "Nos vemos mañana 10:00 sala de juntas. reporte.pdf",
+                    "Detectamos actividad inusual. Confirma tus datos. verificar-cuenta.cmd",
+                    "Envío el reporte mensual consolidado. balance.xlsx",
+                ],
+                "enlaces": [
+                    "https://casino-oro.fun/oferta",
+                    "",
+                    "https://seguridadbancaria-alerta.com/verificar-cuenta",
+                    "",
+                ],
+                "etiqueta": ["spam", "ham", "spam", "ham"],
+            })
 
-# Función que analiza el texto ingresado y muestra la clasificación
-def analizar_texto():
-    texto = entrada_texto.get("1.0", "end").strip()
-    salida_resultado.config(state="normal")
-    salida_resultado.delete("1.0", "end")
-    
-    if texto == "":
-        # Si no hay texto, solo muestra métricas del modelo
-        salida_resultado.insert("end", f"Precisión del modelo: {precision:.4f}\n")
-        salida_resultado.insert("end", f"Recall (solo spam): {recuperacion:.4f}\n")
-    else:
-        # Clasifica el texto y muestra resultado + métricas
-        clasificacion = clasificar_correo(texto)
-        salida_resultado.insert("end", f"Resultado del análisis:\n\n")
-        salida_resultado.insert("end", f"Clasificación del correo: {clasificacion.upper()}\n")
-        salida_resultado.insert("end", f"Precisión del modelo: {precision:.4f}\n")
-        salida_resultado.insert("end", f"Recall (solo spam): {recuperacion:.4f}\n")
-    
-    salida_resultado.config(state="disabled")
+        if "etiqueta" not in df.columns:
+            raise ValueError("El CSV debe contener la columna 'etiqueta' con valores 'spam' o 'ham'.")
 
-# Limpia el texto ingresado y los resultados
-def limpiar_entrada():
-    entrada_texto.delete("1.0", "end")
-    salida_resultado.config(state="normal")
-    salida_resultado.delete("1.0", "end")
-    salida_resultado.config(state="disabled")
+        df["remitente"] = df.get("remitente", "").astype(str)
+        df["asunto"]    = df.get("asunto", "").astype(str)
+        df["mensaje"]   = df.get("mensaje", "").astype(str)
+        df["enlaces"]   = df.get("enlaces", "").astype(str)
+        df["etiqueta"]  = df["etiqueta"].astype(str).str.lower().str.strip()
 
-# Botones para analizar y limpiar
-tk.Button(panel_centro, text="Analizar", command=analizar_texto).pack(pady=5)
-tk.Button(panel_centro, text="Limpiar", command=limpiar_entrada).pack(pady=5)
+        # Construcción de CORPUS enriquecido por fila
+        rows = []
+        for _, r in df.iterrows():
+            remitente = r["remitente"]
+            asunto = r["asunto"]
+            mensaje = r["mensaje"]
+            enlaces_col = r["enlaces"]
 
-# Caja de texto para mostrar resultados
-salida_resultado = tk.Text(panel_centro, height=10, width=50, state="disabled")
-salida_resultado.pack(pady=10)
+            # Enlaces: usar columna si viene, si no, extraer del mensaje
+            enlaces_list = []
+            if isinstance(enlaces_col, str) and enlaces_col.strip():
+                # dividir por espacios si trae varias
+                enlaces_list = [u for u in enlaces_col.split() if u.strip()]
+            # extraer también del cuerpo por si hay más
+            enlaces_list = list(set(enlaces_list + extraer_enlaces(mensaje)))
 
-# Panel derecho: muestra una tabla con parte del dataset#
-frame_tabla = tk.Frame(frame)
-frame_tabla.pack(side="right", padx=10, pady=10, fill="both", expand=True)
+            # Adjuntos: extraer desde el cuerpo
+            adjuntos = extraer_adjuntos(mensaje)
 
-# Tabla con mensajes y etiquetas (sin predicción)
-tabla = ttk.Treeview(frame_tabla, columns=("mensaje", "etiqueta"), show="headings")
-tabla.heading("mensaje", text="Mensaje")
-tabla.heading("etiqueta", text="Etiqueta")
-tabla.column("mensaje", width=400)
-tabla.column("etiqueta", width=80)
+            # Armar texto enriquecido
+            enriched = self._make_feature_text(remitente, asunto, mensaje, enlaces_list, adjuntos)
+            rows.append(enriched)
 
-# Scroll para la tabla
-scrollbar = ttk.Scrollbar(frame_tabla, orient="vertical", command=tabla.yview)
-tabla.configure(yscrollcommand=scrollbar.set)
-scrollbar.pack(side="right", fill="y")
-tabla.pack(fill="both", expand=True)
+        df["mensaje_limpio"] = rows
+        self.df = df
 
-# Llenar la tabla con los primeros 100 mensajes del dataset
-for _, fila in df.head(100).iterrows():
-    tabla.insert("", "end", values=(fila["mensaje"][:100], fila["etiqueta"]))
+        # Vectorización TF-IDF
+        self.vectorizer = TfidfVectorizer(ngram_range=(1, 2), min_df=1)
+        X = self.vectorizer.fit_transform(self.df["mensaje_limpio"])
+        self.palabras = self.vectorizer.get_feature_names_out()
 
-# Ejecutar la aplicación
-ventana.mainloop()
+        # Priors
+        spam = self.df[self.df["etiqueta"] == "spam"]
+        ham  = self.df[self.df["etiqueta"] == "ham"]
+        n = len(self.df) or 1
+        self.P_spam = len(spam) / n
+        self.P_no_spam = len(ham) / n
+
+        # Vectores por clase
+        X_spam = self.vectorizer.transform(spam["mensaje_limpio"]) if len(spam) else X[:0]
+        X_ham  = self.vectorizer.transform(ham["mensaje_limpio"])  if len(ham)  else X[:0]
+
+        alpha = 1.0
+        s_spam = np.sum(X_spam.toarray(), axis=0) if X_spam.shape[0] else np.zeros(len(self.palabras))
+        s_ham  = np.sum(X_ham.toarray(),  axis=0) if X_ham.shape[0]  else np.zeros(len(self.palabras))
+
+        denom_spam = (np.sum(s_spam) + alpha * len(self.palabras)) or 1.0
+        denom_ham  = (np.sum(s_ham)  + alpha * len(self.palabras)) or 1.0
+        self.P_feat_spam = (s_spam + alpha) / denom_spam
+        self.P_feat_ham  = (s_ham  + alpha) / denom_ham
+
+        # Métricas rápidas
+        try:
+            self.df["prediccion"] = self.df["mensaje_limpio"].apply(self.clasificar_texto)
+            self.precision = float(np.mean(self.df["prediccion"] == self.df["etiqueta"]))
+            denom = self.df["etiqueta"].value_counts().get("spam", 1)
+            self.recall_spam = float(
+                np.sum((self.df["prediccion"] == "spam") & (self.df["etiqueta"] == "spam")) / denom
+            )
+        except Exception:
+            pass
+
+    # ============ FEATURE TEXT =============
+    def _make_feature_text(self, remitente: str, asunto: str, contenido: str,
+                           enlaces: list[str] | None, adjuntos: list[tuple[str,str]] | None) -> str:
+        parts: list[str] = []
+
+        # Texto base (limpio)
+        parts.append(limpiar_texto(asunto))
+        parts.append(limpiar_texto(contenido))
+
+        # Dominio remitente → tokens
+        dom = dominio_de_email(remitente)
+        parts += tokens_dominio(dom)
+
+        # Enlaces → tokens
+        if enlaces:
+            for u in enlaces:
+                parts += tokens_enlace(u)
+        else:
+            # intento de extracción si no vienen
+            for u in extraer_enlaces(contenido):
+                parts += tokens_enlace(u)
+
+        # Adjuntos → tokens
+        if adjuntos is None:
+            adjuntos = extraer_adjuntos(contenido)
+        parts += tokens_adjuntos(adjuntos)
+
+        # Unir todo
+        return " ".join([p for p in parts if p])
+
+    # ============ NÚCLEO BAYES ============
+    def _log_post(self, txt_clean: str):
+        v = self.vectorizer.transform([txt_clean]).toarray()[0]
+        eps = 1e-12
+        ls = np.log(self.P_spam + eps)    + np.sum(np.log(self.P_feat_spam + eps) * v)
+        lh = np.log(self.P_no_spam + eps) + np.sum(np.log(self.P_feat_ham  + eps) * v)
+        return ls, lh
+
+    def clasificar_texto(self, txt: str) -> str:
+        t = limpiar_texto(txt)
+        ls, lh = self._log_post(t)
+        return "spam" if ls > lh else "ham"
+
+    def prob_spam_texto(self, txt: str) -> float:
+        t = limpiar_texto(txt)
+        ls, lh = self._log_post(t)
+        d = lh - ls
+        return float(1.0 / (1.0 + np.exp(d)))
+
+    # ============ API PARA CORREO ============
+    def clasificar_correo(self, remitente: str, asunto: str, contenido: str) -> str:
+        """
+        Compatibilidad retro: extrae enlaces/adjuntos automáticamente del contenido.
+        """
+        enriched = self._make_feature_text(remitente, asunto, contenido, None, None)
+        ls, lh = self._log_post(enriched)
+        return "spam" if ls > lh else "ham"
+
+    def prob_spam_correo(self, remitente: str, asunto: str, contenido: str) -> float:
+        enriched = self._make_feature_text(remitente, asunto, contenido, None, None)
+        ls, lh = self._log_post(enriched)
+        d = lh - ls
+        return float(1.0 / (1.0 + np.exp(d)))
+
+    # Versión extendida (puedes pasar enlaces y adjuntos ya extraídos desde la UI)
+    def clasificar_correo_ext(self, remitente: str, asunto: str, contenido: str,
+                              enlaces: list[str] | None = None,
+                              adjuntos: list[tuple[str,str]] | None = None) -> str:
+        enriched = self._make_feature_text(remitente, asunto, contenido, enlaces, adjuntos)
+        ls, lh = self._log_post(enriched)
+        return "spam" if ls > lh else "ham"
+
+    def prob_spam_correo_ext(self, remitente: str, asunto: str, contenido: str,
+                             enlaces: list[str] | None = None,
+                             adjuntos: list[tuple[str,str]] | None = None) -> float:
+        enriched = self._make_feature_text(remitente, asunto, contenido, enlaces, adjuntos)
+        ls, lh = self._log_post(enriched)
+        d = lh - ls
+        return float(1.0 / (1.0 + np.exp(d)))
