@@ -88,12 +88,15 @@ def analizar():  # Función que se ejecuta al presionar "Analizar"
     adj_peligrosos = [n for (n, ext) in adjuntos if ext in EXT_PELIGROSAS]  # Filtra adjuntos peligrosos por extensión
     adj_listables = [n for (n, ext) in adjuntos if ext in (EXT_PELIGROSAS | EXT_COMUNES)]  # Adjuntos a listar (comunes+peligrosos)
 
-    clasificacion = "(sin contenido)" if (not asunto and not contenido) else clf.clasificar_correo_ext(remitente, asunto, contenido, enlaces, adjuntos).upper()
+    # Si tanto el asunto como el contenido del correo están vacíos,asigna "(sin contenido)" como resultado.
+    # De lo contrario, llama al método 'clasificar_correo_ext' del clasificador 'clf' para determinar si el correo es SPAM o HAM, y convierte el resultado a mayúsculas.
+    clasificacion = "(sin contenido)" if (not asunto and not contenido) else clf.clasificar_correo_ext(
+        remitente, asunto, contenido, enlaces, adjuntos).upper()
 
+    # Si el correo no tiene asunto ni contenido, la confianza se establece en 0.0 (ya que no hay información para evaluar).
+    # De lo contrario, se obtiene la probabilidad de que el correo sea SPAM utilizando el método 'prob_spam_correo_ext' del clasificador.
     confianza = 0.0 if (not asunto and not contenido) else clf.prob_spam_correo_ext(
-        remitente, asunto, contenido, enlaces, adjuntos
-    )
-
+        remitente, asunto, contenido, enlaces, adjuntos)
 
     out.config(state="normal")  # Habilita edición para escribir resultados
     out.delete("1.0", "end")  # Limpia salida previa
