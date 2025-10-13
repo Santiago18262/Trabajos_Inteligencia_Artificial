@@ -3,7 +3,6 @@ import os, re, unicodedata              # Importa módulos estándar: manejo de 
 from pathlib import Path                # Permite manejar rutas de archivos de forma multiplataforma
 import numpy as np, pandas as pd, nltk  # Importa librerías: NumPy (matemática), pandas (dataframes), NLTK (texto)
 from sklearn.feature_extraction.text import TfidfVectorizer  # Convierte texto en vectores TF-IDF
-
 from Config_regex import URL_RE, ADJUNTO_RE, EXT_PELIGROSAS, EXT_COMUNES  # Importa expresiones y listas auxiliares
 
 # ------------------- FUNCIONES DE LIMPIEZA -------------------
@@ -204,6 +203,7 @@ class EmailSpamClassifier:                         # Define clase principal del 
             pass
 
     # ============ FEATURE TEXT =============
+    # ========== TEXTO ENRIQUECIDO ==========
     def _make_feature_text(self, remitente: str, asunto: str, contenido: str,
                            enlaces: list[str] | None, adjuntos: list[tuple[str,str]] | None) -> str:
         parts: list[str] = []                        # Lista donde se irán acumulando las partes del texto enriquecido
@@ -258,7 +258,7 @@ class EmailSpamClassifier:                         # Define clase principal del 
         d = lh - ls                                  # Diferencia entre log(HAM) y log(SPAM)
         return float(1.0 / (1.0 + np.exp(d)))        # Aplica sigmoide → valor entre 0 y 1 (probabilidad)
 
-    # ============ API PARA CORREO ============
+    # ============ FUNCIONES PARA CORREO ============
 
     def clasificar_correo(self, remitente: str, asunto: str, contenido: str) -> str:
         """
