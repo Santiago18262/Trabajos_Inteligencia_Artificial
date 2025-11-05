@@ -10,7 +10,7 @@ from services import load_models, recommend, fetch_poster  # Importa las funcion
 # Aplicación de estilos personalizados
 # -------------------------------------------------------------
 inject_css()  # Llama a la función definida en styles.py para aplicar el diseño visual (colores, fondo, botones, etc.)
-
+    
 # -------------------------------------------------------------
 # Carga de modelos (archivos .pkl con los datos y similitudes)
 # -------------------------------------------------------------
