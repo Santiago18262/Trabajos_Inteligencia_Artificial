@@ -14,7 +14,7 @@ from typing import List, Dict, Any
 
 VARIABLES = {
     "edad": {
-        "tipo": "entero", "min": 0, "max": 130,
+        "tipo": "entero", "min": 0, "max": 110,
         "etiqueta": "Edad del paciente (años)",
         "descripcion": "Edad actual del paciente en años completos."
     },
@@ -121,14 +121,51 @@ VARIABLES = {
         "descripcion": "Seleccione si el paciente fuma actualmente, fumó antes o nunca ha fumado."
     },
     "paquetes_por_dia": {
-        "tipo": "flotante", "min": 0.0, "max": 5.0,
+        "tipo": "flotante", "min": 0.0, "max": 8.0,
         "etiqueta": "Promedio de paquetes por día",
         "descripcion": "Cada paquete equivale a 20 cigarrillos. Ej.: 0.5 = 10 cig/día; 1 = 1 paquete diario."
     },
     "anios_fumando": {
-        "tipo": "entero", "min": 0, "max": 80,
+        "tipo": "entero", "min": 0, "max": 95,
         "etiqueta": "Años fumando",
         "descripcion": "Número de años que el paciente ha fumado de forma regular (aproximado)."
+    },
+
+    # -------- NUEVOS SÍNTOMAS / SIGNOS para Resfriado, Sinusitis y Faringitis --------
+    "congestion_nasal": {
+        "tipo": "booleano",
+        "etiqueta": "¿Tiene congestión nasal?",
+        "descripcion": "Sensación de nariz tapada u obstruida."
+    },
+    "rinorrea": {
+        "tipo": "texto", "opciones": ["No", "Clara", "Purulenta"],
+        "etiqueta": "Tipo de secreción nasal (rinorrea)",
+        "descripcion": "Secreción nasal acuosa (clara) o espesa/amarillenta (purulenta)."
+    },
+    "dolor_facial": {
+        "tipo": "booleano",
+        "etiqueta": "¿Dolor o presión facial?",
+        "descripcion": "Dolor o presión en mejillas, frente, o alrededor de ojos (seno paranasal)."
+    },
+    "halitosis": {
+        "tipo": "booleano",
+        "etiqueta": "¿Mal aliento (halitosis)?",
+        "descripcion": "Mal olor en el aliento, puede asociarse a sinusitis bacteriana."
+    },
+    "exudado_amigdalino": {
+        "tipo": "booleano",
+        "etiqueta": "¿Exudado en amígdalas?",
+        "descripcion": "Placas blanquecinas o exudado en las amígdalas, típico de faringitis bacteriana."
+    },
+    "adenopatias_cervicales": {
+        "tipo": "booleano",
+        "etiqueta": "¿Ganglios del cuello inflamados/dolorosos?",
+        "descripcion": "Agrandamiento de ganglios linfáticos cervicales (dolorosos a la palpación)."
+    },
+    "estornudos": {
+        "tipo": "booleano",
+        "etiqueta": "¿Estornudos frecuentes?",
+        "descripcion": "Episodios repetitivos de estornudos, comunes en resfriado alérgico/viral."
     },
 
     "exposicion_contaminantes": {
@@ -163,7 +200,10 @@ VARIABLES = {
 # ============================================================
 
 REGLAS: List[Dict[str, Any]] = [
+
     # === ASMA ===
+    # Interpretación médica: El sistema infiere Asma si detecta silbidos al respirar + tos seca + alergia conocida.
+    # (Escenario típico de asma alérgica).
     {
         "id": "ASMA_1",
         "si": [
@@ -180,6 +220,8 @@ REGLAS: List[Dict[str, Any]] = [
             "Usar beta-agonista de acción corta si es necesario"
         ]
     },
+    # Interpretación médica: Asma por esfuerzo: disnea + sibilancias audibles + sibilos en auscultación.
+    # (Escenario típico inducido por ejercicio o irritantes).
     {
         "id": "ASMA_2",
         "si": [
@@ -197,6 +239,8 @@ REGLAS: List[Dict[str, Any]] = [
     },
 
     # === NEUMONÍA ===
+    # Interpretación médica: Fiebre alta + tos productiva + disnea + crepitantes.
+    # (Escenario clínico típico de neumonía).
     {
         "id": "NEUMONIA_1",
         "si": [
@@ -215,6 +259,8 @@ REGLAS: List[Dict[str, Any]] = [
             "Iniciar antibiótico según guía local"
         ]
     },
+    # Interpretación médica: Hallazgo radiográfico consistente + fiebre y leucocitosis.
+    # (Escenario de confirmación por imagen).
     {
         "id": "NEUMONIA_2_RX",
         "si": [
@@ -232,31 +278,40 @@ REGLAS: List[Dict[str, Any]] = [
     },
 
     # === BRONQUITIS AGUDA ===
+    # Interpretación médica: Tos (seca o productiva) post-infección reciente, sin consolidación.
+    # (Curso < 3 semanas, manejo sintomático).
     {
         "id": "BRONQUITIS_1",
+        # Interpretación médica: Tos subaguda post-IR, sin consolidación, con pocos síntomas nasales.
         "si": [
             {"variable": "tos", "operador": "in", "valor": ["Seca", "Productiva"]},
             {"variable": "infeccion_respiratoria_reciente", "operador": "==", "valor": True},
             {"variable": "duracion_tos_dias", "operador": "<=", "valor": 21},
             {"variable": "rx_consolidacion", "operador": "==", "valor": False},
+            {"variable": "congestion_nasal", "operador": "==", "valor": False, "peso": 0.8},
+            {"variable": "rinorrea", "operador": "!=", "valor": "Clara", "peso": 0.8}
         ],
         "entonces": "Bronquitis aguda",
-        "cf": 0.75,
+        "cf": 0.65,
         "logica": "todas",
         "recomendaciones": [
             "Tratamiento sintomático (descanso e hidratación)",
             "Evitar el uso de antibióticos innecesarios"
         ]
     },
+    # Interpretación médica: Tos + fiebre baja + sin crepitantes.
+    # (Escenario leve sin datos de neumonía).
     {
         "id": "BRONQUITIS_2",
+        # Interpretación médica: Tos + fiebre baja + sin crepitantes, con escasa congestión nasal.
         "si": [
             {"variable": "tos", "operador": "in", "valor": ["Seca", "Productiva"]},
             {"variable": "fiebre_c", "operador": "<", "valor": 38.0},
             {"variable": "crepitantes", "operador": "==", "valor": False},
+            {"variable": "congestion_nasal", "operador": "==", "valor": False, "peso": 0.7}
         ],
         "entonces": "Bronquitis aguda",
-        "cf": 0.60,
+        "cf": 0.55,
         "logica": "todas",
         "recomendaciones": [
             "Analgésicos y antipiréticos si hay fiebre",
@@ -264,8 +319,8 @@ REGLAS: List[Dict[str, Any]] = [
         ]
     },
 
-    # === EPOC (actualizado con paquetes_por_dia y anios_fumando) ===
-    # Escenario 1: fumador actual o ex, consumo alto (≥ 1 paquete/día)
+    # === EPOC (con paquetes_por_dia y anios_fumando) ===
+    # Interpretación médica: ≥40 años + fumador/exfumador + consumo alto (≥1 paquete/día) + disnea y sibilancias.
     {
         "id": "EPOC_1",
         "si": [
@@ -284,7 +339,7 @@ REGLAS: List[Dict[str, Any]] = [
             "Vacunas contra influenza y neumococo"
         ]
     },
-    # Escenario 2: exposición prolongada (≥ 15 años) con consumo moderado (≥ 0.5 paquetes/día)
+    # Interpretación médica: Exposición prolongada (≥15 años) + consumo moderado (≥0.5 paquetes/día) + síntomas respiratorios.
     {
         "id": "EPOC_2",
         "si": [
@@ -306,6 +361,7 @@ REGLAS: List[Dict[str, Any]] = [
     },
 
     # === COVID-19 ===
+    # Interpretación médica: Fiebre + tos + fatiga + contacto confirmado.
     {
         "id": "COVID_1",
         "si": [
@@ -323,6 +379,7 @@ REGLAS: List[Dict[str, Any]] = [
             "Monitoreo de saturación de oxígeno si hay factores de riesgo"
         ]
     },
+    # Interpretación médica: Anosmia + fiebre leve + odinofagia.
     {
         "id": "COVID_2_ANOSMIA",
         "si": [
@@ -340,6 +397,7 @@ REGLAS: List[Dict[str, Any]] = [
     },
 
     # === INFLUENZA ===
+    # Interpretación médica: Fiebre alta + mialgias + cefalea + invierno.
     {
         "id": "INFLUENZA_1",
         "si": [
@@ -355,6 +413,124 @@ REGLAS: List[Dict[str, Any]] = [
             "Prueba rápida de influenza",
             "Administrar antiviral si cumple criterios",
             "Reposo e hidratación adecuada"
+        ]
+    },
+
+    # === RESFRIADO COMÚN ===
+    # Interpretación médica: Rinorrea clara + congestión nasal + odinofagia leve + fiebre < 38 °C.
+    # (Escenario viral leve autolimitado).
+    {
+        "id": "RESFRIADO_1",
+        # Interpretación médica: Rinorrea clara + congestión nasal + odinofagia leve + fiebre < 38 °C.
+        "si": [
+            {"variable": "rinorrea", "operador": "==", "valor": "Clara"},
+            {"variable": "congestion_nasal", "operador": "==", "valor": True},
+            {"variable": "odinofagia", "operador": "==", "valor": True, "peso": 0.6},
+            {"variable": "fiebre_c", "operador": "<", "valor": 38.0},
+            {"variable": "rx_consolidacion", "operador": "==", "valor": False}
+        ],
+        "entonces": "Resfriado común",
+        "cf": 0.80,
+        "logica": "todas",
+        "recomendaciones": [
+            "Hidratación y reposo",
+            "Lavados nasales con solución salina",
+            "Analgésicos/antipiréticos si es necesario"
+        ]
+    },
+    # Interpretación médica: Estornudos + rinorrea clara + congestión nasal ± tos leve.
+    {
+        "id": "RESFRIADO_2",
+        # Interpretación médica: Estornudos + rinorrea clara + congestión nasal ± tos leve.
+        "si": [
+            {"variable": "estornudos", "operador": "==", "valor": True},
+            {"variable": "rinorrea", "operador": "==", "valor": "Clara"},
+            {"variable": "congestion_nasal", "operador": "==", "valor": True},
+            {"variable": "tos", "operador": "in", "valor": ["No", "Seca"], "peso": 0.5},
+            {"variable": "fiebre_c", "operador": "<", "valor": 38.0}
+        ],
+        "entonces": "Resfriado común",
+        "cf": 0.75,
+        "logica": "todas",
+        "recomendaciones": [
+            "Medidas sintomáticas",
+            "Evitar antibióticos"
+        ]
+    },
+
+    # === SINUSITIS ===
+    # Interpretación médica: Dolor/ presión facial + rinorrea purulenta + fiebre (posible bacteriana).
+    {
+        "id": "SINUSITIS_1",
+        "si": [
+            {"variable": "dolor_facial", "operador": "==", "valor": True},
+            {"variable": "rinorrea", "operador": "==", "valor": "Purulenta"},
+            {"variable": "fiebre_c", "operador": ">=", "valor": 38.0}
+        ],
+        "entonces": "Sinusitis",
+        "cf": 0.80,
+        "logica": "todas",
+        "recomendaciones": [
+            "Analgésicos y descongestionantes tópicos (uso limitado)",
+            "Lavados nasales",
+            "Valorar antibiótico si síntomas severos o persistentes"
+        ]
+    },
+    # Interpretación médica: Dolor facial + halitosis + congestión nasal (curso moderado).
+    {
+        "id": "SINUSITIS_2",
+        "si": [
+            {"variable": "dolor_facial", "operador": "==", "valor": True},
+            {"variable": "halitosis", "operador": "==", "valor": True},
+            {"variable": "congestion_nasal", "operador": "==", "valor": True}
+        ],
+        "entonces": "Sinusitis",
+        "cf": 0.70,
+        "logica": "todas",
+        "recomendaciones": [
+            "Lavados nasales",
+            "Analgésicos",
+            "Valorar evolución en 48–72 h"
+        ]
+    },
+
+    # === FARINGITIS ===
+    # Interpretación médica: Faringitis viral: odinofagia + tos presente + rinorrea clara + fiebre < 38 °C.
+    {
+        "id": "FARINGITIS_1_VIRAL",
+        "si": [
+            {"variable": "odinofagia", "operador": "==", "valor": True},
+            {"variable": "tos", "operador": "in", "valor": ["Seca", "Productiva"]},
+            {"variable": "rinorrea", "operador": "==", "valor": "Clara"},
+            {"variable": "fiebre_c", "operador": "<", "valor": 38.0}
+        ],
+        "entonces": "Faringitis (viral)",
+        "cf": 0.70,
+        "logica": "todas",
+        "recomendaciones": [
+            "Gárgaras con agua tibia y sal",
+            "Analgésicos/antipiréticos",
+            "Evitar antibióticos"
+        ]
+    },
+    # Interpretación médica: Faringitis estreptocócica (bacteriana): odinofagia intensa, exudado amigdalino,
+    # adenopatías cervicales, fiebre ≥ 38 °C y ausencia de tos.
+    {
+        "id": "FARINGITIS_2_BACTERIANA",
+        "si": [
+            {"variable": "odinofagia", "operador": "==", "valor": True},
+            {"variable": "exudado_amigdalino", "operador": "==", "valor": True},
+            {"variable": "adenopatias_cervicales", "operador": "==", "valor": True},
+            {"variable": "fiebre_c", "operador": ">=", "valor": 38.0},
+            {"variable": "tos", "operador": "==", "valor": "No", "peso": 0.8}
+        ],
+        "entonces": "Faringitis (bacteriana)",
+        "cf": 0.85,
+        "logica": "todas",
+        "recomendaciones": [
+            "Prueba rápida de estreptococo o cultivo faríngeo",
+            "Antibiótico si la prueba es positiva (según guía local)",
+            "Analgésicos/antipiréticos"
         ]
     },
 ]

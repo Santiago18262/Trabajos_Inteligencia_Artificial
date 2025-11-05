@@ -21,43 +21,96 @@ st.title("🩺 Sistema Experto — Diagnóstico de Enfermedades Respiratorias")
 st.caption("Basado en reglas tipo 'SI... ENTONCES' con factores de certeza y explicaciones en lenguaje natural.")
 
 # ------------------------------------------------------------
+# Función auxiliar para generar los campos del formulario
+# ------------------------------------------------------------
+def input_field(var, meta):
+    tipo = meta["tipo"]
+    etiqueta = meta.get("etiqueta", var.replace("_", " ").capitalize())
+    desc = meta.get("descripcion")
+
+    # Campos según tipo de dato
+    if tipo == "entero":
+        val = st.number_input(
+            etiqueta,
+            min_value=meta.get("min", 0),
+            max_value=meta.get("max", 100),
+            value=meta.get("min", 0),
+            step=1
+        )
+    elif tipo == "flotante":
+        val = st.number_input(
+            etiqueta,
+            min_value=meta.get("min", 0.0),
+            max_value=meta.get("max", 100.0),
+            value=meta.get("min", 0.0),
+            step=0.1,
+            format="%.1f"
+        )
+    elif tipo == "texto":
+        val = st.selectbox(etiqueta, meta.get("opciones", [""]))
+    elif tipo == "booleano":
+        val = st.checkbox(etiqueta, value=False)
+    else:
+        val = None
+
+    # Mostrar descripción debajo
+    if desc:
+        st.caption(desc)
+    return val
+
+# ------------------------------------------------------------
+# Agrupación visual de variables
+# ------------------------------------------------------------
+GRUPOS = {
+    "Datos personales": [
+        "edad", "sexo"
+    ],
+    "Síntomas": [
+        # Respiratorios generales
+        "fiebre_c", "tos", "duracion_tos_dias",
+        "sibilancias", "disnea", "dolor_pecho", "fatiga",
+        "cefalea", "mialgias", "odinofagia", "anosmia",
+
+        # NUEVOS (resfriado/sinusitis/faringitis)
+        "congestion_nasal", "rinorrea", "dolor_facial",
+        "halitosis", "exudado_amigdalino", "adenopatias_cervicales",
+        "estornudos"
+    ],
+    "Signos y estudios": [
+        "satO2", "crepitantes", "roncus", "sibilos_auscultacion",
+        "rx_consolidacion", "pcr_alta", "leucocitosis"
+    ],
+    "Factores de riesgo": [
+        "tabaquismo", "paquetes_por_dia", "anios_fumando",
+        "exposicion_contaminantes", "alergias_atopia",
+        "infeccion_respiratoria_reciente", "contacto_covid",
+        "estacional_invierno"
+    ]
+}
+
+
+# ------------------------------------------------------------
 # Sección lateral (entrada de datos del paciente)
 # ------------------------------------------------------------
 with st.sidebar:
     st.header("Datos del paciente")
     hechos = {}
 
-    # Recorre todas las variables definidas en la base de conocimiento
-    for variable, meta in VARIABLES.items():
-        tipo = meta["tipo"]
-        etiqueta = meta.get("etiqueta", variable.replace("_", " ").capitalize())
+    # Recorre las variables agrupadas por categoría
+    usados = set()
+    for titulo, llaves in GRUPOS.items():
+        st.subheader(titulo)
+        for k in llaves:
+            if k in VARIABLES:
+                hechos[k] = input_field(k, VARIABLES[k])
+                usados.add(k)
 
-        # Campos según tipo de dato
-        if tipo == "entero":
-            hechos[variable] = st.number_input(
-                etiqueta,
-                min_value=meta.get("min", 0),
-                max_value=meta.get("max", 100),
-                value=meta.get("min", 0),
-                step=1
-            )
-        elif tipo == "flotante":
-            hechos[variable] = st.number_input(
-                etiqueta,
-                min_value=meta.get("min", 0.0),
-                max_value=meta.get("max", 100.0),
-                value=meta.get("min", 0.0),
-                step=0.1,
-                format="%.1f"
-            )
-        elif tipo == "texto":
-            hechos[variable] = st.selectbox(etiqueta, meta.get("opciones", [""]))
-        elif tipo == "booleano":
-            hechos[variable] = st.checkbox(etiqueta, value=False)
-
-        # Mostrar descripción breve debajo del campo
-        if "descripcion" in meta:
-            st.caption(meta["descripcion"])
+    # Si hay variables nuevas no incluidas en los grupos
+    restantes = [k for k in VARIABLES.keys() if k not in usados]
+    if restantes:
+        st.subheader("Otros")
+        for k in restantes:
+            hechos[k] = input_field(k, VARIABLES[k])
 
 # ------------------------------------------------------------
 # Estructura visual en columnas
@@ -78,7 +131,8 @@ with col1:
         st.write("**Diagnósticos presuntivos (con probabilidad):**")
 
         for dx, cf in orden:
-            st.markdown(f"- **{dx}** — probabilidad **{cf*100:.1f}%**")
+            st.markdown(f"**{dx}** — probabilidad **{cf*100:.1f}%**")
+            # st.progress(min(max(cf, 0.0), 1.0))  # Barra de progreso visual
 
         st.divider()
 
