@@ -3,7 +3,7 @@
 """
 Base de Conocimiento (BC) del Sistema Experto de diagnóstico de enfermedades respiratorias.
 Contiene todas las variables de entrada y las reglas médicas en español.
-Cada regla tiene un factor de certeza (cf) que representa la probabilidad del diagnóstico.
+Cada regla tiene un factor de certeza (fc) que representa la probabilidad del diagnóstico.
 """
 
 from typing import List, Dict, Any
@@ -131,7 +131,7 @@ VARIABLES = {
         "descripcion": "Número de años que el paciente ha fumado de forma regular (aproximado)."
     },
 
-    # -------- NUEVOS SÍNTOMAS / SIGNOS para Resfriado, Sinusitis y Faringitis --------
+    # -------- SÍNTOMAS / SIGNOS nasofaríngeos (Resfriado, Faringitis) --------
     "congestion_nasal": {
         "tipo": "booleano",
         "etiqueta": "¿Tiene congestión nasal?",
@@ -142,16 +142,7 @@ VARIABLES = {
         "etiqueta": "Tipo de secreción nasal (rinorrea)",
         "descripcion": "Secreción nasal acuosa (clara) o espesa/amarillenta (purulenta)."
     },
-    "dolor_facial": {
-        "tipo": "booleano",
-        "etiqueta": "¿Dolor o presión facial?",
-        "descripcion": "Dolor o presión en mejillas, frente, o alrededor de ojos (seno paranasal)."
-    },
-    "halitosis": {
-        "tipo": "booleano",
-        "etiqueta": "¿Mal aliento (halitosis)?",
-        "descripcion": "Mal olor en el aliento, puede asociarse a sinusitis bacteriana."
-    },
+    # (Eliminadas: dolor_facial, halitosis)
     "exudado_amigdalino": {
         "tipo": "booleano",
         "etiqueta": "¿Exudado en amígdalas?",
@@ -212,7 +203,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "alergias_atopia", "operador": "==", "valor": True},
         ],
         "entonces": "Asma",
-        "cf": 0.90,
+        "fc": 0.90,
         "logica": "todas",
         "recomendaciones": [
             "Realizar espirometría con broncodilatador",
@@ -230,7 +221,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "sibilos_auscultacion", "operador": "==", "valor": True, "peso": 0.9},
         ],
         "entonces": "Asma",
-        "cf": 0.80,
+        "fc": 0.80,
         "logica": "todas",
         "recomendaciones": [
             "Espirometría de control",
@@ -250,7 +241,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "crepitantes", "operador": "==", "valor": True},
         ],
         "entonces": "Neumonía",
-        "cf": 0.85,
+        "fc": 0.85,
         "logica": "todas",
         "recomendaciones": [
             "Radiografía de tórax",
@@ -269,7 +260,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "leucocitosis", "operador": "==", "valor": True, "peso": 0.8},
         ],
         "entonces": "Neumonía",
-        "cf": 0.90,
+        "fc": 0.90,
         "logica": "todas",
         "recomendaciones": [
             "Iniciar antibiótico empírico",
@@ -278,11 +269,9 @@ REGLAS: List[Dict[str, Any]] = [
     },
 
     # === BRONQUITIS AGUDA ===
-    # Interpretación médica: Tos (seca o productiva) post-infección reciente, sin consolidación.
-    # (Curso < 3 semanas, manejo sintomático).
+    # Interpretación médica: Tos subaguda post-IR, sin consolidación, con pocos síntomas nasales.
     {
         "id": "BRONQUITIS_1",
-        # Interpretación médica: Tos subaguda post-IR, sin consolidación, con pocos síntomas nasales.
         "si": [
             {"variable": "tos", "operador": "in", "valor": ["Seca", "Productiva"]},
             {"variable": "infeccion_respiratoria_reciente", "operador": "==", "valor": True},
@@ -292,18 +281,16 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "rinorrea", "operador": "!=", "valor": "Clara", "peso": 0.8}
         ],
         "entonces": "Bronquitis aguda",
-        "cf": 0.65,
+        "fc": 0.65,
         "logica": "todas",
         "recomendaciones": [
             "Tratamiento sintomático (descanso e hidratación)",
             "Evitar el uso de antibióticos innecesarios"
         ]
     },
-    # Interpretación médica: Tos + fiebre baja + sin crepitantes.
-    # (Escenario leve sin datos de neumonía).
+    # Interpretación médica: Tos + fiebre baja + sin crepitantes, con escasa congestión nasal.
     {
         "id": "BRONQUITIS_2",
-        # Interpretación médica: Tos + fiebre baja + sin crepitantes, con escasa congestión nasal.
         "si": [
             {"variable": "tos", "operador": "in", "valor": ["Seca", "Productiva"]},
             {"variable": "fiebre_c", "operador": "<", "valor": 38.0},
@@ -311,7 +298,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "congestion_nasal", "operador": "==", "valor": False, "peso": 0.7}
         ],
         "entonces": "Bronquitis aguda",
-        "cf": 0.55,
+        "fc": 0.55,
         "logica": "todas",
         "recomendaciones": [
             "Analgésicos y antipiréticos si hay fiebre",
@@ -331,7 +318,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "sibilancias", "operador": "==", "valor": True},
         ],
         "entonces": "EPOC",
-        "cf": 0.80,
+        "fc": 0.80,
         "logica": "todas",
         "recomendaciones": [
             "Espirometría diagnóstica (FEV1/FVC)",
@@ -351,7 +338,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "sibilancias", "operador": "==", "valor": True},
         ],
         "entonces": "EPOC",
-        "cf": 0.75,
+        "fc": 0.75,
         "logica": "todas",
         "recomendaciones": [
             "Espirometría diagnóstica (FEV1/FVC)",
@@ -371,7 +358,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "contacto_covid", "operador": "==", "valor": True, "peso": 0.9},
         ],
         "entonces": "COVID-19",
-        "cf": 0.80,
+        "fc": 0.80,
         "logica": "todas",
         "recomendaciones": [
             "Prueba diagnóstica (antígeno o PCR)",
@@ -388,7 +375,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "odinofagia", "operador": "==", "valor": True, "peso": 0.6},
         ],
         "entonces": "COVID-19",
-        "cf": 0.70,
+        "fc": 0.70,
         "logica": "todas",
         "recomendaciones": [
             "Realizar prueba de detección",
@@ -407,7 +394,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "estacional_invierno", "operador": "==", "valor": True},
         ],
         "entonces": "Influenza",
-        "cf": 0.75,
+        "fc": 0.75,
         "logica": "todas",
         "recomendaciones": [
             "Prueba rápida de influenza",
@@ -417,11 +404,9 @@ REGLAS: List[Dict[str, Any]] = [
     },
 
     # === RESFRIADO COMÚN ===
-    # Interpretación médica: Rinorrea clara + congestión nasal + odinofagia leve + fiebre < 38 °C.
-    # (Escenario viral leve autolimitado).
+    # (Viral leve; patrón nasal dominante)
     {
         "id": "RESFRIADO_1",
-        # Interpretación médica: Rinorrea clara + congestión nasal + odinofagia leve + fiebre < 38 °C.
         "si": [
             {"variable": "rinorrea", "operador": "==", "valor": "Clara"},
             {"variable": "congestion_nasal", "operador": "==", "valor": True},
@@ -430,7 +415,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "rx_consolidacion", "operador": "==", "valor": False}
         ],
         "entonces": "Resfriado común",
-        "cf": 0.80,
+        "fc": 0.85,   # ↑ antes 0.80
         "logica": "todas",
         "recomendaciones": [
             "Hidratación y reposo",
@@ -438,10 +423,8 @@ REGLAS: List[Dict[str, Any]] = [
             "Analgésicos/antipiréticos si es necesario"
         ]
     },
-    # Interpretación médica: Estornudos + rinorrea clara + congestión nasal ± tos leve.
     {
         "id": "RESFRIADO_2",
-        # Interpretación médica: Estornudos + rinorrea clara + congestión nasal ± tos leve.
         "si": [
             {"variable": "estornudos", "operador": "==", "valor": True},
             {"variable": "rinorrea", "operador": "==", "valor": "Clara"},
@@ -450,62 +433,45 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "fiebre_c", "operador": "<", "valor": 38.0}
         ],
         "entonces": "Resfriado común",
-        "cf": 0.75,
+        "fc": 0.80,   # ↑ antes 0.75
         "logica": "todas",
         "recomendaciones": [
             "Medidas sintomáticas",
             "Evitar antibióticos"
         ]
     },
-
-    # === SINUSITIS ===
-    # Interpretación médica: Dolor/ presión facial + rinorrea purulenta + fiebre (posible bacteriana).
     {
-        "id": "SINUSITIS_1",
+        "id": "RESFRIADO_3",
         "si": [
-            {"variable": "dolor_facial", "operador": "==", "valor": True},
-            {"variable": "rinorrea", "operador": "==", "valor": "Purulenta"},
-            {"variable": "fiebre_c", "operador": ">=", "valor": 38.0}
+            {"variable": "congestion_nasal", "operador": "==", "valor": True},
+            {"variable": "rinorrea", "operador": "==", "valor": "Clara"},
+            {"variable": "estornudos", "operador": "==", "valor": True},
+            {"variable": "fiebre_c", "operador": "<", "valor": 38.0},
+            {"variable": "rx_consolidacion", "operador": "==", "valor": False}
         ],
-        "entonces": "Sinusitis",
-        "cf": 0.80,
+        "entonces": "Resfriado común",
+        "fc": 0.82,   # ↑ antes 0.78
         "logica": "todas",
         "recomendaciones": [
-            "Analgésicos y descongestionantes tópicos (uso limitado)",
-            "Lavados nasales",
-            "Valorar antibiótico si síntomas severos o persistentes"
-        ]
-    },
-    # Interpretación médica: Dolor facial + halitosis + congestión nasal (curso moderado).
-    {
-        "id": "SINUSITIS_2",
-        "si": [
-            {"variable": "dolor_facial", "operador": "==", "valor": True},
-            {"variable": "halitosis", "operador": "==", "valor": True},
-            {"variable": "congestion_nasal", "operador": "==", "valor": True}
-        ],
-        "entonces": "Sinusitis",
-        "cf": 0.70,
-        "logica": "todas",
-        "recomendaciones": [
-            "Lavados nasales",
-            "Analgésicos",
-            "Valorar evolución en 48–72 h"
+            "Hidratación y reposo",
+            "Lavados nasales con solución salina",
+            "Analgésicos/antipiréticos si es necesario"
         ]
     },
 
     # === FARINGITIS ===
-    # Interpretación médica: Faringitis viral: odinofagia + tos presente + rinorrea clara + fiebre < 38 °C.
+    # Faringitis viral: odinofagia + tos; ↓ peso si hay patrón nasal claro (congestión + rinorrea clara)
     {
         "id": "FARINGITIS_1_VIRAL",
         "si": [
             {"variable": "odinofagia", "operador": "==", "valor": True},
             {"variable": "tos", "operador": "in", "valor": ["Seca", "Productiva"]},
-            {"variable": "rinorrea", "operador": "==", "valor": "Clara"},
-            {"variable": "fiebre_c", "operador": "<", "valor": 38.0}
+            {"variable": "fiebre_c", "operador": "<", "valor": 38.0},
+            {"variable": "congestion_nasal", "operador": "==", "valor": False, "peso": 0.7},
+            {"variable": "rinorrea", "operador": "!=", "valor": "Clara", "peso": 0.7}
         ],
         "entonces": "Faringitis (viral)",
-        "cf": 0.70,
+        "fc": 0.55,   # ↓ antes 0.60
         "logica": "todas",
         "recomendaciones": [
             "Gárgaras con agua tibia y sal",
@@ -513,8 +479,7 @@ REGLAS: List[Dict[str, Any]] = [
             "Evitar antibióticos"
         ]
     },
-    # Interpretación médica: Faringitis estreptocócica (bacteriana): odinofagia intensa, exudado amigdalino,
-    # adenopatías cervicales, fiebre ≥ 38 °C y ausencia de tos.
+    # Interpretación médica: Faringitis estreptocócica: odinofagia intensa + exudado + adenopatías + fiebre ≥ 38 °C + sin tos.
     {
         "id": "FARINGITIS_2_BACTERIANA",
         "si": [
@@ -525,7 +490,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "tos", "operador": "==", "valor": "No", "peso": 0.8}
         ],
         "entonces": "Faringitis (bacteriana)",
-        "cf": 0.85,
+        "fc": 0.85,
         "logica": "todas",
         "recomendaciones": [
             "Prueba rápida de estreptococo o cultivo faríngeo",

@@ -72,9 +72,8 @@ GRUPOS = {
         "cefalea", "mialgias", "odinofagia", "anosmia",
 
         # NUEVOS (resfriado/sinusitis/faringitis)
-        "congestion_nasal", "rinorrea", "dolor_facial",
-        "halitosis", "exudado_amigdalino", "adenopatias_cervicales",
-        "estornudos"
+        "congestion_nasal", "rinorrea","exudado_amigdalino",
+        "adenopatias_cervicales", "estornudos"
     ],
     "Signos y estudios": [
         "satO2", "crepitantes", "roncus", "sibilos_auscultacion",
@@ -130,9 +129,9 @@ with col1:
         orden = sorted(puntajes.items(), key=lambda x: x[1], reverse=True)
         st.write("**Diagnósticos presuntivos (con probabilidad):**")
 
-        for dx, cf in orden:
-            st.markdown(f"**{dx}** — probabilidad **{cf*100:.1f}%**")
-            # st.progress(min(max(cf, 0.0), 1.0))  # Barra de progreso visual
+        for dx, fc in orden:
+            st.markdown(f"**{dx}** — probabilidad **{fc*100:.1f}%**")
+            # st.progress(min(max(fc, 0.0), 1.0))  # Barra de progreso visual
 
         st.divider()
 
@@ -163,7 +162,7 @@ with col1:
             with st.expander(f"Para confirmar **{dx}**, revise también:"):
                 for n in necesidades:
                     reqs = [f"{c['variable'].replace('_', ' ')} {c['operador']} {c['valor']}" for c in n["condiciones"]]
-                    st.markdown(f"- **Regla {n['regla']}** (CF={n['cf']}, lógica={n['logica']}): " + "; ".join(reqs))
+                    st.markdown(f"- **Regla {n['regla']}** (fc={n['fc']}, lógica={n['logica']}): " + "; ".join(reqs))
 
     else:
         st.info("No se activó ninguna regla con los datos actuales. Intente completar más campos o síntomas del paciente.")
@@ -175,7 +174,7 @@ with col2:
     st.subheader("Reglas de la Base de Conocimiento")
     st.write(f"Total de reglas: **{len(REGLAS)}**")
     for r in REGLAS:
-        with st.expander(f"{r['id']} → {r['entonces']} (CF={r['cf']})"):
+        with st.expander(f"{r['id']} → {r['entonces']} (fc={r['fc']})"):
             st.json(r)
 
 # ------------------------------------------------------------

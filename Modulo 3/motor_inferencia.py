@@ -8,6 +8,7 @@ a los datos ingresados por el usuario (hechos).
 Incluye:
 - Encadenamiento hacia adelante (para calcular diagnósticos)
 - Encadenamiento hacia atrás (para verificar qué faltaría confirmar)
+- Encadenamiento hacia atrás automatico (para verificar los diagnosticos más probables)
 """
 
 from typing import Dict, Any, List
@@ -75,7 +76,7 @@ def encadenamiento_adelante(hechos: Dict[str, Any], reglas: List[Dict[str, Any]]
     for regla in reglas:
         grados = [grado_verdad(hechos, c) for c in regla["si"]]
         agregado = agregar(grados, regla.get("logica", "todas"))
-        certeza_regla = agregado * float(regla.get("cf", 1.0))
+        certeza_regla = agregado * float(regla.get("fc", 1.0))
 
         if certeza_regla > 0:
             diagnostico = regla["entonces"]
@@ -120,7 +121,7 @@ def encadenamiento_atras(objetivo: str, reglas: List[Dict[str, Any]]) -> List[Di
             requisitos.append({
                 "regla": r.get("id"),
                 "logica": r.get("logica", "todas"),
-                "cf": r.get("cf", 1.0),
+                "fc": r.get("fc", 1.0),
                 "condiciones": r["si"],
             })
     return requisitos
