@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 Pruebas de validación del Sistema Experto para diagnóstico de enfermedades respiratorias.
-Muestra las probabilidades por diagnóstico y el Top para cada caso.
-Incluye casos completos y casos PARCIALES (no se cumplen todas las condiciones).
+- Muestra las probabilidades por diagnóstico y el Top para cada caso.
+- Incluye casos COMPLETOS, PARCIALES (aproximados) y NEGATIVOS.
 """
 
 from typing import Dict, Any, List, Tuple
@@ -11,15 +11,15 @@ from base_conocimiento import REGLAS
 from motor_inferencia import encadenamiento_adelante
 
 # ============================================================================
-# Helpers de impresión
+# Helper de impresión
 # ============================================================================
 
 def mostrar_resultados(nombre: str, hechos: Dict[str, Any]):
     trazas, puntajes, explicaciones, recomendaciones = encadenamiento_adelante(hechos, REGLAS)
 
-    print("\n" + "="*60)
+    print("\n" + "="*70)
     print(f" Caso: {nombre}")
-    print("="*60)
+    print("="*70)
 
     if not puntajes:
         print("Sin diagnósticos (todas las reglas relevantes quedaron en 0 o no aplican).")
@@ -48,7 +48,7 @@ def mostrar_resultados(nombre: str, hechos: Dict[str, Any]):
         for dx, recs in recomendaciones.items():
             print(f"  {dx}: {', '.join(recs)}")
 
-    print("\n" + "-"*60)
+    print("\n" + "-"*70)
 
 # ============================================================================
 # Casos COMPLETOS (diagnósticos principales)
@@ -69,7 +69,7 @@ def caso_neumonia_1():
     )
 
 def caso_neumonia_2_rx():
-    """Neumonía por imagen + labs (evitando disparar neumonía clínica completa)."""
+    """Neumonía por imagen + labs (evitando disparar la clínica completa)."""
     return dict(
         edad=65, sexo="Masculino",
         fiebre_c=38.2, tos="Seca", duracion_tos_dias=2,
@@ -297,18 +297,15 @@ def caso_bronquitis_2():
     )
 
 # ============================================================================
-# Casos PARCIALES (no se cumplen todas las condiciones)
+# Casos PARCIALES (no se cumplen todas las condiciones; ahora dan aproximado)
 # ============================================================================
 
 def caso_neumonia_parcial():
-    """
-    NEUMONÍA_1 PARCIAL: falta 'crepitantes=True' → esa regla aporta 0.
-    También evitamos NEUMONÍA_2_RX (sin consolidación ni leucocitosis).
-    """
+    """NEUMONÍA_1 PARCIAL: falta 'crepitantes=True' → esa regla aporta parcial."""
     return dict(
         edad=70, sexo="Femenino",
         fiebre_c=39.0, tos="Productiva", duracion_tos_dias=5,
-        disnea=True, crepitantes=False,   # <-- falta crepitantes
+        disnea=True, crepitantes=False,   # falta crepitantes
         sibilancias=False, dolor_pecho=True, fatiga=True,
         rx_consolidacion=False, leucocitosis=False, pcr_alta=False,
         roncus=False, sibilos_auscultacion=False,
@@ -316,52 +313,89 @@ def caso_neumonia_parcial():
     )
 
 def caso_asma_parcial():
-    """
-    ASMA_1 PARCIAL: falta 'alergias_atopia=True' → ASMA_1=0.
-    Evitamos ASMA_2: sin disnea ni sibilos en auscultación.
-    """
+    """ASMA_1 PARCIAL: falta 'alergias_atopia=True'."""
     return dict(
         edad=25, sexo="Masculino",
-        tos="Seca", sibilancias=True, alergias_atopia=False,  # <-- falta alergia
+        tos="Seca", sibilancias=True, alergias_atopia=False,  # falta alergia
         disnea=False, sibilos_auscultacion=False, rx_consolidacion=False
     )
 
 def caso_bronquitis_1_parcial_con_bronquitis_2_activa():
-    """
-    BRONQUITIS_1 PARCIAL: falta 'infeccion_respiratoria_reciente=True' → BRONQUITIS_1=0.
-    PERO se cumplen condiciones de BRONQUITIS_2 → hay aporte por la otra regla.
-    """
+    """BRONQUITIS_1 PARCIAL, pero BRONQUITIS_2 sí aporta."""
     return dict(
         edad=33, sexo="Masculino",
         tos="Productiva", duracion_tos_dias=10,
-        infeccion_respiratoria_reciente=False,   # <-- falta para BRONQUITIS_1
+        infeccion_respiratoria_reciente=False,   # falta para BRONQUITIS_1
         rx_consolidacion=False, crepitantes=False,
         fiebre_c=37.6, congestion_nasal=False    # activa BRONQUITIS_2
     )
 
 def caso_covid_1_parcial_con_covid_2_activa():
-    """
-    COVID_1 PARCIAL: 'contacto_covid=False' → COVID_1=0.
-    PERO activamos COVID_2 (anosmia + fiebre leve + odinofagia).
-    """
+    """COVID_1 PARCIAL (sin contacto), pero COVID_2 activa (anosmia + odinofagia)."""
     return dict(
         edad=29, sexo="Femenino",
         fiebre_c=37.6, tos="No", fatiga=False,
-        contacto_covid=False,     # <-- falta para COVID_1
+        contacto_covid=False,     # falta para COVID_1
         anosmia=True, odinofagia=True,            # activa COVID_2
         rx_consolidacion=False, leucocitosis=False, pcr_alta=False
     )
 
 def caso_faringitis_bacteriana_parcial_con_viral_activa():
-    """
-    FARINGITIS BACTERIANA PARCIAL: 'tos' debe ser 'No'; aquí 'Seca' → regla=0.
-    PERO activamos FARINGITIS VIRAL (odinofagia, fiebre <38, patrón nasal no claro).
-    """
+    """Faringitis bacteriana parcial (tos 'Seca'), viral activa."""
     return dict(
         edad=20, sexo="Femenino",
-        fiebre_c=37.5, odinofagia=True, tos="Seca",   # <-- rompe la bacteriana
+        fiebre_c=37.5, odinofagia=True, tos="Seca",   # rompe la bacteriana
         congestion_nasal=False, rinorrea="Purulenta", # activa la viral
         rx_consolidacion=False, leucocitosis=False
+    )
+
+# ============================================================================
+# PRUEBAS NEGATIVAS — No deben arrojar diagnósticos
+# ============================================================================
+
+def caso_negativo_vacio():
+    """Sin hechos: agregado=0 → sin diagnósticos."""
+    return dict()
+
+def caso_negativo_demografia_sola():
+    """Solo demografía: ninguna regla se activa por edad/sexo únicamente."""
+    return dict(
+        edad=35,
+        sexo="Masculino"
+    )
+
+def caso_negativo_categorias_fuera_de_opciones():
+    """Categóricos fuera del catálogo; omitimos umbrales y RX."""
+    return dict(
+        tos="Indefinida",
+        rinorrea="Ninguna",
+        tabaquismo="Desconocido",
+        congestion_nasal=None,
+        disnea=None, sibilancias=None
+    )
+
+def caso_negativo_minimos_inofensivos():
+    """Valores que no activan reglas (evitamos fiebre_c, RX, labs, nasales)."""
+    return dict(
+        tos="No",
+        disnea=False,
+        sibilancias=False,
+        crepitantes=False,
+        sibilos_auscultacion=False,
+        alergias_atopia=False,
+        contacto_covid=False,
+        estacional_invierno=False
+    )
+
+def caso_negativo_labs_sueltos_inconclusos():
+    """Labs sueltos no suficientes para activar neumonía RX."""
+    return dict(
+        pcr_alta=True,
+        leucocitosis=False,
+        tos="No",
+        disnea=False,
+        sibilancias=False,
+        congestion_nasal=False
     )
 
 # ============================================================================
@@ -395,19 +429,33 @@ PRUEBAS_PARCIALES = [
     ("Faringitis bacteriana parcial, viral activa", caso_faringitis_bacteriana_parcial_con_viral_activa),
 ]
 
+PRUEBAS_NEGATIVAS = [
+    ("NEGATIVO: vacío", caso_negativo_vacio),
+    ("NEGATIVO: demografía sola", caso_negativo_demografia_sola),
+    ("NEGATIVO: categorías fuera de opciones", caso_negativo_categorias_fuera_de_opciones),
+    ("NEGATIVO: mínimos inofensivos", caso_negativo_minimos_inofensivos),
+    ("NEGATIVO: labs sueltos inconclusos", caso_negativo_labs_sueltos_inconclusos),
+]
+
 # ============================================================================
 # Ejecución
 # ============================================================================
 
 if __name__ == "__main__":
-    print("\n" + "#"*60)
+    print("\n" + "#"*70)
     print("# PRUEBAS COMPLETAS")
-    print("#"*60)
+    print("#"*70)
     for nombre, fabrica in PRUEBAS_COMPLETAS:
         mostrar_resultados(nombre, fabrica())
 
-    print("\n" + "#"*60)
-    print("# PRUEBAS PARCIALES (no se cumplen todas las condiciones)")
-    print("#"*60)
+    print("\n" + "#"*70)
+    print("# PRUEBAS PARCIALES (no se cumplen todas las condiciones; se muestra aproximado)")
+    print("#"*70)
     for nombre, fabrica in PRUEBAS_PARCIALES:
+        mostrar_resultados(nombre, fabrica())
+
+    print("\n" + "#"*70)
+    print("# PRUEBAS NEGATIVAS (no deben arrojar diagnósticos)")
+    print("#"*70)
+    for nombre, fabrica in PRUEBAS_NEGATIVAS:
         mostrar_resultados(nombre, fabrica())

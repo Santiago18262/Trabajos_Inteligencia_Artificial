@@ -1,8 +1,9 @@
-# aplicacion.py
+# app.py
 # -*- coding: utf-8 -*-
 """
 Interfaz principal del Sistema Experto para diagnóstico de enfermedades respiratorias.
-Incluye campos descriptivos para que el usuario entienda cada dato ingresado.
+Ajuste: la UI se mantiene simple (sin switches). Internamente solo se consideran
+los campos que el usuario realmente tocó. Los valores por defecto se ignoran.
 """
 
 import streamlit as st
@@ -15,48 +16,107 @@ from motor_inferencia import encadenamiento_adelante, encadenamiento_atras_autom
 st.set_page_config(page_title="Sistema Experto Respiratorio", page_icon="", layout="wide")
 
 # ------------------------------------------------------------
+# Utilidades de estado: detectar si el usuario tocó un campo
+# ------------------------------------------------------------
+def _ensure_state(var: str):
+    # Bandera de "tocado"
+    if f"t_{var}" not in st.session_state:
+        st.session_state[f"t_{var}"] = False
+
+def _mark_touched(var: str):
+    st.session_state[f"t_{var}"] = True
+
+def _is_touched(var: str) -> bool:
+    return bool(st.session_state.get(f"t_{var}", False))
+
+# ------------------------------------------------------------
 # Encabezado principal
 # ------------------------------------------------------------
 st.title("Sistema Experto — Diagnóstico de Enfermedades Respiratorias")
-st.caption("Haga clic en el icono >> (arriba a la izquierda) para abrir el panel de entrada de datos del paciente y proceder con el diagnóstico.")
+st.caption("Ingresa datos en el panel **>>** (arriba a la izquierda) para ingresar los datos y síntomas del paciente y pulsa "
+           "**Calcular diagnóstico** para mostrar la probabilidades de cada una de las enfermedades.")
 
 # ------------------------------------------------------------
-# Función auxiliar para generar los campos del formulario
+# Campo de entrada con detección de interacción
 # ------------------------------------------------------------
-def input_field(var, meta):
+def input_field(var: str, meta: dict):
+    """
+    Dibuja el control según tipo, registra 'tocado' con on_change,
+    y devuelve (valor, incluir?). Solo incluimos si el usuario tocó el control
+    o si el valor es distinto al placeholder (en texto).
+    """
+    _ensure_state(var)
+
     tipo = meta["tipo"]
     etiqueta = meta.get("etiqueta", var.replace("_", " ").capitalize())
     desc = meta.get("descripcion")
+    key = f"in_{var}"
 
-    # Campos según tipo de dato
+    # BOOLEANO: checkbox. Unchecked por defecto NO entra hasta que lo toquen.
+    if tipo == "booleano":
+        val = st.checkbox(etiqueta, value=False, key=key, on_change=_mark_touched, args=(var,))
+        if desc: st.caption(desc)
+        incluir = _is_touched(var)  # solo si el usuario interactuó
+        return (val if incluir else None), incluir
+
+    # ENTERO
     if tipo == "entero":
         val = st.number_input(
             etiqueta,
             min_value=meta.get("min", 0),
             max_value=meta.get("max", 100),
-            value=meta.get("min", 0),
-            step=1
+            value=meta.get("min", 0),  # valor inicial "neutro"
+            step=1,
+            key=key,
+            on_change=_mark_touched,
+            args=(var,)
         )
-    elif tipo == "flotante":
+        if desc: st.caption(desc)
+        incluir = _is_touched(var)
+        return (val if incluir else None), incluir
+
+    # FLOTANTE
+    if tipo == "flotante":
         val = st.number_input(
             etiqueta,
             min_value=meta.get("min", 0.0),
             max_value=meta.get("max", 100.0),
-            value=meta.get("min", 0.0),
+            value=meta.get("min", 0.0),  # valor inicial "neutro"
             step=0.1,
-            format="%.1f"
+            format="%.1f",
+            key=key,
+            on_change=_mark_touched,
+            args=(var,)
         )
-    elif tipo == "texto":
-        val = st.selectbox(etiqueta, meta.get("opciones", [""]))
-    elif tipo == "booleano":
-        val = st.checkbox(etiqueta, value=False)
-    else:
-        val = None
+        if desc: st.caption(desc)
+        incluir = _is_touched(var)
+        return (val if incluir else None), incluir
 
-    # Mostrar descripción debajo
-    if desc:
-        st.caption(desc)
-    return val
+    # TEXTO: insertamos placeholder inicial que NO cuenta
+    if tipo == "texto":
+        opciones = meta.get("opciones", [])
+        placeholder = "— (sin dato) —"
+        if opciones:
+            opciones_ui = [placeholder] + opciones  # placeholder en índice 0
+            idx = st.selectbox(etiqueta, options=list(range(len(opciones_ui))),
+                               format_func=lambda i: opciones_ui[i],
+                               index=0,
+                               key=key,
+                               on_change=_mark_touched,
+                               args=(var,))
+            val = None if idx == 0 else opciones_ui[idx]
+        else:
+            # texto libre con placeholder visual
+            val = st.text_input(etiqueta, value="", key=key, on_change=_mark_touched, args=(var,))
+            if val == "":  # vacío no cuenta
+                val = None
+        if desc: st.caption(desc)
+        incluir = (val is not None)
+        return val, incluir
+
+    # Fallback
+    if desc: st.caption(desc)
+    return None, False
 
 # ------------------------------------------------------------
 # Agrupación visual de variables
@@ -66,13 +126,10 @@ GRUPOS = {
         "edad", "sexo"
     ],
     "Síntomas": [
-        # Respiratorios generales
         "fiebre_c", "tos", "duracion_tos_dias",
         "sibilancias", "disnea", "dolor_pecho", "fatiga",
         "cefalea", "mialgias", "odinofagia", "anosmia",
-
-        # NUEVOS (resfriado/sinusitis/faringitis)
-        "congestion_nasal", "rinorrea","exudado_amigdalino",
+        "congestion_nasal", "rinorrea", "exudado_amigdalino",
         "adenopatias_cervicales", "estornudos"
     ],
     "Signos y estudios": [
@@ -87,29 +144,31 @@ GRUPOS = {
     ]
 }
 
-
 # ------------------------------------------------------------
 # Sección lateral (entrada de datos del paciente)
 # ------------------------------------------------------------
 with st.sidebar:
     st.header("Datos del paciente")
     hechos = {}
-
-    # Recorre las variables agrupadas por categoría
     usados = set()
+
     for titulo, llaves in GRUPOS.items():
         st.subheader(titulo)
         for k in llaves:
             if k in VARIABLES:
-                hechos[k] = input_field(k, VARIABLES[k])
+                val, incluir = input_field(k, VARIABLES[k])
+                if incluir:
+                    hechos[k] = val
                 usados.add(k)
 
-    # Si hay variables nuevas no incluidas en los grupos
+    # Variables no agrupadas (si las hubiera)
     restantes = [k for k in VARIABLES.keys() if k not in usados]
     if restantes:
         st.subheader("Otros")
         for k in restantes:
-            hechos[k] = input_field(k, VARIABLES[k])
+            val, incluir = input_field(k, VARIABLES[k])
+            if incluir:
+                hechos[k] = val
 
 # ------------------------------------------------------------
 # Estructura visual en columnas
@@ -122,50 +181,36 @@ col1, col2 = st.columns([1.3, 1])
 with col1:
     st.subheader("Presentación del diagnóstico")
 
-    trazas, puntajes, explicaciones, recomendaciones = encadenamiento_adelante(hechos, REGLAS)
+    calcular = st.button("Calcular diagnóstico", type="primary")
 
-    if puntajes:
-        # Ordenar los diagnósticos de mayor a menor probabilidad
-        orden = sorted(puntajes.items(), key=lambda x: x[1], reverse=True)
-        st.write("**Diagnósticos presuntivos (con probabilidad):**")
+    if calcular and hechos:
+        trazas, puntajes, explicaciones, recomendaciones = encadenamiento_adelante(hechos, REGLAS)
 
-        for dx, fc in orden:
-            st.markdown(f"**{dx}** — probabilidad **{fc*100:.1f}%**")
-            # st.progress(min(max(fc, 0.0), 1.0))  # Barra de progreso visual
+        if puntajes:
+            orden = sorted(puntajes.items(), key=lambda x: x[1], reverse=True)
+            st.write("**Diagnósticos presuntivos (con probabilidad):**")
+            for dx, fc in orden:
+                st.markdown(f"**{dx}** — probabilidad **{fc*100:.1f}%**")
 
-        st.divider()
+            st.divider()
 
-        # ------------------------------------------------------------
-        # Recomendaciones médicas sugeridas
-        # ------------------------------------------------------------
-        st.subheader("Recomendaciones iniciales")
-        for dx, _ in orden[:3]:
-            if recomendaciones.get(dx):
-                st.markdown(f"**{dx}:** " + "; ".join(recomendaciones[dx]))
+            st.subheader("Recomendaciones iniciales")
+            for dx, _ in orden[:3]:
+                if recomendaciones.get(dx):
+                    st.markdown(f"**{dx}:** " + "; ".join(recomendaciones[dx]))
 
-        # ------------------------------------------------------------
-        # Explicación de cómo se llegó al diagnóstico
-        # ------------------------------------------------------------
-        st.subheader("Explicación en lenguaje natural")
-        for dx, _ in orden[:3]:
-            if explicaciones.get(dx):
-                with st.expander(f"¿Por qué se diagnosticó {dx}?"):
-                    for frase in explicaciones[dx]:
-                        st.markdown("• " + frase)
-
-        # ------------------------------------------------------------
-        # Encadenamiento hacia atrás automático (requisitos faltantes)
-        # ------------------------------------------------------------
-        # st.subheader("Encadenamiento hacia atrás automático")
-        # faltantes = encadenamiento_atras_automatico(puntajes, REGLAS, top_n=3)
-        # for dx, necesidades in faltantes.items():
-        #     with st.expander(f"Para confirmar **{dx}**, revise también:"):
-        #         for n in necesidades:
-        #             reqs = [f"{c['variable'].replace('_', ' ')} {c['operador']} {c['valor']}" for c in n["condiciones"]]
-        #             st.markdown(f"- **Regla {n['regla']}** (fc={n['fc']}, lógica={n['logica']}): " + "; ".join(reqs))
-
+            st.subheader("Explicación en lenguaje natural")
+            for dx, _ in orden[:3]:
+                if explicaciones.get(dx):
+                    with st.expander(f"¿Por qué se diagnosticó {dx}?"):
+                        for frase in explicaciones[dx]:
+                            st.markdown("• " + frase)
+        else:
+            st.info("Con los datos proporcionados no se activó ninguna regla. Complete uno o más campos e intente nuevamente.")
+    elif calcular and not hechos:
+        st.info("No ingresaste ningún dato. Modifica al menos un campo y vuelve a calcular.")
     else:
-        st.info("No se activó ninguna regla con los datos actuales. Intente completar más campos o síntomas del paciente.")
+        st.caption("Modifica uno o más campos en el panel lateral y pulsa **Calcular diagnóstico**.")
 
 # ------------------------------------------------------------
 # Columna 2: Visualización de las reglas de la base de conocimiento
@@ -174,5 +219,5 @@ with col2:
     st.subheader("Reglas de la Base de Conocimiento")
     st.write(f"Total de reglas: **{len(REGLAS)}**")
     for r in REGLAS:
-        with st.expander(f"{r['id']} → {r['entonces']} (fc={r['fc']})"):
+        with st.expander(f"{r['id']} → {r['entonces']} (fc={r.get('fc',1.0)})"):
             st.json(r)

@@ -56,9 +56,26 @@ def grado_verdad(hechos: Dict[str, Any], condicion: Dict[str, Any]) -> float:
 # FUNCIONES DE AGREGACIÓN Y COMBINACIÓN DE REGLAS
 # ============================================================
 
-def agregar(valores: List[float], logica: str) -> float:
-    """Si la lógica es 'todas', toma el mínimo; si es 'alguna', el máximo."""
-    return min(valores) if logica == "todas" else max(valores)
+def agregar(valores: List[float], logica: str, pesos: List[float] | None = None) -> float:
+    """
+    Agrega los grados de verdad de una regla.
+    - 'todas' (AND): PROMEDIO PONDERADO por pesos → permite resultados parciales.
+    - 'alguna' (OR): máximo.
+    'valores' ya vienen multiplicados por el 'peso' de cada condición.
+    """
+    if not valores:
+        return 0.0
+
+    modo = (logica or "todas").strip().lower()
+    if modo in {"todas", "and", "y", "all"}:
+        # Promedio ponderado: sum(valores) / sum(pesos)
+        if pesos is None or not pesos:
+            pesos = [1.0] * len(valores)
+        total_pesos = sum(pesos) or 1.0
+        return sum(valores) / total_pesos
+    else:
+        return max(valores)
+
 
 def combinar(existente: float, nuevo: float) -> float:
     """Combina factores de certeza múltiples de la misma enfermedad."""
@@ -75,7 +92,8 @@ def encadenamiento_adelante(hechos: Dict[str, Any], reglas: List[Dict[str, Any]]
 
     for regla in reglas:
         grados = [grado_verdad(hechos, c) for c in regla["si"]]
-        agregado = agregar(grados, regla.get("logica", "todas"))
+        pesos = [float(c.get("peso", 1.0)) for c in regla["si"]]
+        agregado = agregar(grados, regla.get("logica", "todas"), pesos)
         certeza_regla = agregado * float(regla.get("fc", 1.0))
 
         if certeza_regla > 0:
@@ -86,8 +104,11 @@ def encadenamiento_adelante(hechos: Dict[str, Any], reglas: List[Dict[str, Any]]
             condiciones_texto = []
             for c in regla["si"]:
                 valor = hechos.get(c["variable"])
-                cumple = evaluar(valor, c["operador"], c["valor"])
-                texto = f"{c['variable'].replace('_',' ')}: {'✅' if cumple else '❌'} (valor: {valor}, espera: {c['operador']} {c['valor']})"
+                try:
+                    cumple = evaluar(valor, c["operador"], c["valor"])
+                except Exception:
+                    cumple = False
+                texto = f"{c['variable'].replace('_',' ')}: {'✅' if cumple else '❌'} (valor: {valor}, espera: {c['operador']} {c['valor']}, peso={c.get('peso',1.0)})"
                 condiciones_texto.append(texto)
 
             frase = f"Regla {regla.get('id')}: " + "; ".join(condiciones_texto)
@@ -104,6 +125,7 @@ def encadenamiento_adelante(hechos: Dict[str, Any], reglas: List[Dict[str, Any]]
                 "regla_id": regla.get("id"),
                 "diagnostico": diagnostico,
                 "factor_certeza": round(certeza_regla, 3),
+                "cobertura": round(agregado, 3),
             })
 
     return trazabilidad, puntajes, explicaciones, recomendaciones
