@@ -4,7 +4,6 @@ Pruebas de validación del Sistema Experto para diagnóstico de enfermedades res
 - Muestra las probabilidades por diagnóstico y el Top para cada caso.
 - Incluye casos COMPLETOS, PARCIALES (aproximados) y NEGATIVOS.
 """
-# ↑ Docstring del módulo: explica qué hace este script de pruebas.
 
 from typing import Dict, Any, List, Tuple  # Tipos para anotar funciones (opcional, mejora legibilidad)
 from base_conocimiento import REGLAS      # Importa la Base de Conocimiento (lista de reglas)
