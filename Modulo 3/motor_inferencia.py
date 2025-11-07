@@ -87,7 +87,7 @@ def encadenamiento_adelante(hechos: Dict[str, Any], reglas: List[Dict[str, Any]]
             for c in regla["si"]:
                 valor = hechos.get(c["variable"])
                 cumple = evaluar(valor, c["operador"], c["valor"])
-                texto = f"{c['variable'].replace('_',' ')}: {'✔️' if cumple else '⛔'} (valor: {valor}, espera: {c['operador']} {c['valor']})"
+                texto = f"{c['variable'].replace('_',' ')}: {'✅' if cumple else '❌'} (valor: {valor}, espera: {c['operador']} {c['valor']})"
                 condiciones_texto.append(texto)
 
             frase = f"Regla {regla.get('id')}: " + "; ".join(condiciones_texto)

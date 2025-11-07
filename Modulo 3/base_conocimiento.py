@@ -193,8 +193,6 @@ VARIABLES = {
 REGLAS: List[Dict[str, Any]] = [
 
     # === ASMA ===
-    # Interpretación médica: El sistema infiere Asma si detecta silbidos al respirar + tos seca + alergia conocida.
-    # (Escenario típico de asma alérgica).
     {
         "id": "ASMA_1",
         "si": [
@@ -204,15 +202,11 @@ REGLAS: List[Dict[str, Any]] = [
         ],
         "entonces": "Asma",
         "fc": 0.90,
-        "logica": "todas",
         "recomendaciones": [
             "Realizar espirometría con broncodilatador",
-            "Evitar alérgenos conocidos",
-            "Usar beta-agonista de acción corta si es necesario"
+            "Evitar alérgenos conocidos"
         ]
     },
-    # Interpretación médica: Asma por esfuerzo: disnea + sibilancias audibles + sibilos en auscultación.
-    # (Escenario típico inducido por ejercicio o irritantes).
     {
         "id": "ASMA_2",
         "si": [
@@ -221,8 +215,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "sibilos_auscultacion", "operador": "==", "valor": True, "peso": 0.9},
         ],
         "entonces": "Asma",
-        "fc": 0.80,
-        "logica": "todas",
+        "fc": 0.85,
         "recomendaciones": [
             "Espirometría de control",
             "Prueba de óxido nítrico exhalado si está disponible"
@@ -230,8 +223,6 @@ REGLAS: List[Dict[str, Any]] = [
     },
 
     # === NEUMONÍA ===
-    # Interpretación médica: Fiebre alta + tos productiva + disnea + crepitantes.
-    # (Escenario clínico típico de neumonía).
     {
         "id": "NEUMONIA_1",
         "si": [
@@ -242,7 +233,6 @@ REGLAS: List[Dict[str, Any]] = [
         ],
         "entonces": "Neumonía",
         "fc": 0.85,
-        "logica": "todas",
         "recomendaciones": [
             "Radiografía de tórax",
             "Oximetría de pulso",
@@ -250,8 +240,6 @@ REGLAS: List[Dict[str, Any]] = [
             "Iniciar antibiótico según guía local"
         ]
     },
-    # Interpretación médica: Hallazgo radiográfico consistente + fiebre y leucocitosis.
-    # (Escenario de confirmación por imagen).
     {
         "id": "NEUMONIA_2_RX",
         "si": [
@@ -260,8 +248,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "leucocitosis", "operador": "==", "valor": True, "peso": 0.8},
         ],
         "entonces": "Neumonía",
-        "fc": 0.90,
-        "logica": "todas",
+        "fc": 0.95,
         "recomendaciones": [
             "Iniciar antibiótico empírico",
             "Control clínico en 48–72 horas"
@@ -269,7 +256,6 @@ REGLAS: List[Dict[str, Any]] = [
     },
 
     # === BRONQUITIS AGUDA ===
-    # Interpretación médica: Tos subaguda post-IR, sin consolidación, con pocos síntomas nasales.
     {
         "id": "BRONQUITIS_1",
         "si": [
@@ -282,13 +268,11 @@ REGLAS: List[Dict[str, Any]] = [
         ],
         "entonces": "Bronquitis aguda",
         "fc": 0.65,
-        "logica": "todas",
         "recomendaciones": [
             "Tratamiento sintomático (descanso e hidratación)",
             "Evitar el uso de antibióticos innecesarios"
         ]
     },
-    # Interpretación médica: Tos + fiebre baja + sin crepitantes, con escasa congestión nasal.
     {
         "id": "BRONQUITIS_2",
         "si": [
@@ -299,15 +283,13 @@ REGLAS: List[Dict[str, Any]] = [
         ],
         "entonces": "Bronquitis aguda",
         "fc": 0.55,
-        "logica": "todas",
         "recomendaciones": [
             "Analgésicos y antipiréticos si hay fiebre",
             "Revalorar si aparecen signos de neumonía"
         ]
     },
 
-    # === EPOC (con paquetes_por_dia y anios_fumando) ===
-    # Interpretación médica: ≥40 años + fumador/exfumador + consumo alto (≥1 paquete/día) + disnea y sibilancias.
+    # === EPOC ===
     {
         "id": "EPOC_1",
         "si": [
@@ -318,15 +300,13 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "sibilancias", "operador": "==", "valor": True},
         ],
         "entonces": "EPOC",
-        "fc": 0.80,
-        "logica": "todas",
+        "fc": 0.78,
         "recomendaciones": [
             "Espirometría diagnóstica (FEV1/FVC)",
             "Abandono del tabaquismo",
             "Vacunas contra influenza y neumococo"
         ]
     },
-    # Interpretación médica: Exposición prolongada (≥15 años) + consumo moderado (≥0.5 paquetes/día) + síntomas respiratorios.
     {
         "id": "EPOC_2",
         "si": [
@@ -339,7 +319,6 @@ REGLAS: List[Dict[str, Any]] = [
         ],
         "entonces": "EPOC",
         "fc": 0.75,
-        "logica": "todas",
         "recomendaciones": [
             "Espirometría diagnóstica (FEV1/FVC)",
             "Abandono del tabaquismo",
@@ -348,7 +327,6 @@ REGLAS: List[Dict[str, Any]] = [
     },
 
     # === COVID-19 ===
-    # Interpretación médica: Fiebre + tos + fatiga + contacto confirmado.
     {
         "id": "COVID_1",
         "si": [
@@ -359,14 +337,12 @@ REGLAS: List[Dict[str, Any]] = [
         ],
         "entonces": "COVID-19",
         "fc": 0.80,
-        "logica": "todas",
         "recomendaciones": [
             "Prueba diagnóstica (antígeno o PCR)",
             "Aislamiento domiciliario",
             "Monitoreo de saturación de oxígeno si hay factores de riesgo"
         ]
     },
-    # Interpretación médica: Anosmia + fiebre leve + odinofagia.
     {
         "id": "COVID_2_ANOSMIA",
         "si": [
@@ -376,7 +352,6 @@ REGLAS: List[Dict[str, Any]] = [
         ],
         "entonces": "COVID-19",
         "fc": 0.70,
-        "logica": "todas",
         "recomendaciones": [
             "Realizar prueba de detección",
             "Aislamiento y vigilancia de síntomas"
@@ -384,7 +359,6 @@ REGLAS: List[Dict[str, Any]] = [
     },
 
     # === INFLUENZA ===
-    # Interpretación médica: Fiebre alta + mialgias + cefalea + invierno.
     {
         "id": "INFLUENZA_1",
         "si": [
@@ -395,7 +369,6 @@ REGLAS: List[Dict[str, Any]] = [
         ],
         "entonces": "Influenza",
         "fc": 0.75,
-        "logica": "todas",
         "recomendaciones": [
             "Prueba rápida de influenza",
             "Administrar antiviral si cumple criterios",
@@ -404,7 +377,6 @@ REGLAS: List[Dict[str, Any]] = [
     },
 
     # === RESFRIADO COMÚN ===
-    # (Viral leve; patrón nasal dominante)
     {
         "id": "RESFRIADO_1",
         "si": [
@@ -415,8 +387,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "rx_consolidacion", "operador": "==", "valor": False}
         ],
         "entonces": "Resfriado común",
-        "fc": 0.85,   # ↑ antes 0.80
-        "logica": "todas",
+        "fc": 0.85,
         "recomendaciones": [
             "Hidratación y reposo",
             "Lavados nasales con solución salina",
@@ -433,8 +404,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "fiebre_c", "operador": "<", "valor": 38.0}
         ],
         "entonces": "Resfriado común",
-        "fc": 0.80,   # ↑ antes 0.75
-        "logica": "todas",
+        "fc": 0.80,
         "recomendaciones": [
             "Medidas sintomáticas",
             "Evitar antibióticos"
@@ -450,8 +420,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "rx_consolidacion", "operador": "==", "valor": False}
         ],
         "entonces": "Resfriado común",
-        "fc": 0.82,   # ↑ antes 0.78
-        "logica": "todas",
+        "fc": 0.78,
         "recomendaciones": [
             "Hidratación y reposo",
             "Lavados nasales con solución salina",
@@ -460,7 +429,6 @@ REGLAS: List[Dict[str, Any]] = [
     },
 
     # === FARINGITIS ===
-    # Faringitis viral: odinofagia + tos; ↓ peso si hay patrón nasal claro (congestión + rinorrea clara)
     {
         "id": "FARINGITIS_1_VIRAL",
         "si": [
@@ -471,15 +439,13 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "rinorrea", "operador": "!=", "valor": "Clara", "peso": 0.7}
         ],
         "entonces": "Faringitis (viral)",
-        "fc": 0.55,   # ↓ antes 0.60
-        "logica": "todas",
+        "fc": 0.55,
         "recomendaciones": [
             "Gárgaras con agua tibia y sal",
             "Analgésicos/antipiréticos",
             "Evitar antibióticos"
         ]
     },
-    # Interpretación médica: Faringitis estreptocócica: odinofagia intensa + exudado + adenopatías + fiebre ≥ 38 °C + sin tos.
     {
         "id": "FARINGITIS_2_BACTERIANA",
         "si": [
@@ -490,8 +456,7 @@ REGLAS: List[Dict[str, Any]] = [
             {"variable": "tos", "operador": "==", "valor": "No", "peso": 0.8}
         ],
         "entonces": "Faringitis (bacteriana)",
-        "fc": 0.85,
-        "logica": "todas",
+        "fc": 0.90,
         "recomendaciones": [
             "Prueba rápida de estreptococo o cultivo faríngeo",
             "Antibiótico si la prueba es positiva (según guía local)",

@@ -12,13 +12,13 @@ from motor_inferencia import encadenamiento_adelante, encadenamiento_atras_autom
 # ------------------------------------------------------------
 # Configuración general de la página
 # ------------------------------------------------------------
-st.set_page_config(page_title="Sistema Experto Respiratorio", page_icon="🩺", layout="wide")
+st.set_page_config(page_title="Sistema Experto Respiratorio", page_icon="", layout="wide")
 
 # ------------------------------------------------------------
 # Encabezado principal
 # ------------------------------------------------------------
-st.title("🩺 Sistema Experto — Diagnóstico de Enfermedades Respiratorias")
-st.caption("Basado en reglas tipo 'SI... ENTONCES' con factores de certeza y explicaciones en lenguaje natural.")
+st.title("Sistema Experto — Diagnóstico de Enfermedades Respiratorias")
+st.caption("Haga clic en el icono >> (arriba a la izquierda) para abrir el panel de entrada de datos del paciente y proceder con el diagnóstico.")
 
 # ------------------------------------------------------------
 # Función auxiliar para generar los campos del formulario
@@ -156,13 +156,13 @@ with col1:
         # ------------------------------------------------------------
         # Encadenamiento hacia atrás automático (requisitos faltantes)
         # ------------------------------------------------------------
-        st.subheader("Encadenamiento hacia atrás automático")
-        faltantes = encadenamiento_atras_automatico(puntajes, REGLAS, top_n=3)
-        for dx, necesidades in faltantes.items():
-            with st.expander(f"Para confirmar **{dx}**, revise también:"):
-                for n in necesidades:
-                    reqs = [f"{c['variable'].replace('_', ' ')} {c['operador']} {c['valor']}" for c in n["condiciones"]]
-                    st.markdown(f"- **Regla {n['regla']}** (fc={n['fc']}, lógica={n['logica']}): " + "; ".join(reqs))
+        # st.subheader("Encadenamiento hacia atrás automático")
+        # faltantes = encadenamiento_atras_automatico(puntajes, REGLAS, top_n=3)
+        # for dx, necesidades in faltantes.items():
+        #     with st.expander(f"Para confirmar **{dx}**, revise también:"):
+        #         for n in necesidades:
+        #             reqs = [f"{c['variable'].replace('_', ' ')} {c['operador']} {c['valor']}" for c in n["condiciones"]]
+        #             st.markdown(f"- **Regla {n['regla']}** (fc={n['fc']}, lógica={n['logica']}): " + "; ".join(reqs))
 
     else:
         st.info("No se activó ninguna regla con los datos actuales. Intente completar más campos o síntomas del paciente.")
@@ -176,8 +176,3 @@ with col2:
     for r in REGLAS:
         with st.expander(f"{r['id']} → {r['entonces']} (fc={r['fc']})"):
             st.json(r)
-
-# ------------------------------------------------------------
-# Pie de página
-# ------------------------------------------------------------
-st.caption("Este prototipo tiene fines educativos y no sustituye una valoración médica profesional.")
