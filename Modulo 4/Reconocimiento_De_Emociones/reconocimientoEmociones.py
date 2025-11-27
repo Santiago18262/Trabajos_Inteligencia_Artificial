@@ -1,12 +1,11 @@
+# reconocimientoEmociones.py
 import cv2      # Visión por computadora
-import os       # Manejo de rutas
 from pathlib import Path
 import numpy as np
 
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications.vgg16 import preprocess_input
-
 
 # ----------------------------------------------------------------------
 # FUNCIÓN PARA CARGAR EMOJI SEGÚN LA EMOCIÓN
@@ -15,6 +14,10 @@ def cargar_emoji(nombre_emocion):
     """
     Carga la imagen del emoji correspondiente desde la carpeta 'Emojis'
     ubicada junto al script.
+    El archivo debe llamarse igual que la emoción, por ejemplo:
+        Emojis/Happy.png
+        Emojis/Sad.png
+        Emojis/Angry.png
     """
     directorio_base = Path(__file__).parent
     directorio_emojis = directorio_base / 'Emojis'
@@ -42,14 +45,13 @@ def cargar_emoji(nombre_emocion):
 
     return None
 
-
 # ----------------------------------------------------------------------
 # PREPROCESAMIENTO PARA LA CNN (VGG16)
 # ----------------------------------------------------------------------
 def preprocesar_rostro(rostro_bgr, tamano=224):
     """
     Prepara el rostro para la CNN:
-    - Redimensiona
+    - Redimensiona a (tamano, tamano)
     - Convierte a RGB
     - Normaliza con preprocess_input de VGG16
     - Agrega dimensión batch
@@ -61,17 +63,16 @@ def preprocesar_rostro(rostro_bgr, tamano=224):
     rostro_rgb = preprocess_input(rostro_rgb)
     return rostro_rgb
 
-
 # ----------------------------------------------------------------------
 # CARGAR MODELO Y NOMBRES DE CLASES
+# (asegúrate de que estos archivos estén en la misma carpeta que este .py)
 # ----------------------------------------------------------------------
 modelo = load_model("modelo_emociones_vgg16.h5")
 nombres_clases = np.load("label_names.npy").tolist()
 
 print("Emociones detectables:", nombres_clases)
 
-TAMANO_IMAGEN = 224
-
+TAMANO_IMAGEN = 48
 
 # ----------------------------------------------------------------------
 # INICIAR CÁMARA Y CLASIFICADOR DE ROSTROS
@@ -81,7 +82,6 @@ camara = cv2.VideoCapture(0, cv2.CAP_DSHOW)
 clasificador_rostros = cv2.CascadeClassifier(
     cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
 )
-
 
 # ----------------------------------------------------------------------
 # BUCLE PRINCIPAL
@@ -108,19 +108,30 @@ while True:
 
         # Predicción
         predicciones = modelo.predict(rostro_procesado, verbose=0)
-        indice = np.argmax(predicciones)
-        emocion = nombres_clases[indice]
-        probabilidad = predicciones[0][indice]
+        indice = int(np.argmax(predicciones))
+
+        num_outputs = predicciones.shape[1]
+        num_names = len(nombres_clases)
+
+        if indice < num_names:
+            emocion = nombres_clases[indice]
+        else:
+            emocion = f"Clase_{indice}"
+
+        probabilidad = float(predicciones[0][indice])
 
         # ------- DEPURACIÓN EN CONSOLA -------
-        print("Probabilidades:", predicciones[0])
-        for i, nombre in enumerate(nombres_clases):
+        print("Probabilidades crudas:", predicciones[0])
+        if num_outputs != num_names:
+            print(f"WARNING: el modelo devuelve {num_outputs} salidas pero 'label_names.npy' tiene {num_names} nombres.")
+        for i in range(num_outputs):
+            nombre = nombres_clases[i] if i < num_names else f"Clase_{i}"
             print(f"{nombre}: {predicciones[0][i]*100:.2f}%")
         print(f"Predicción final: {emocion} ({probabilidad*100:.2f}%)")
         print("----------------------------------------------")
         # ---------------------------------------
 
-        # Dibujar rectángulo y texto
+        # Dibujar rectángulo y texto en el fotograma original
         texto = f"{emocion} ({probabilidad*100:.1f}%)"
         cv2.putText(fotograma, texto, (x, y - 10),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
@@ -137,7 +148,7 @@ while True:
 
         fotograma_completo = cv2.hconcat([fotograma, emoji_redimensionado])
 
-    cv2.imshow('Reconocimiento de emociones (VGG16)', fotograma_completo)
+    cv2.imshow('Reconocimiento de emociones (VGG16 + FER2013)', fotograma_completo)
 
     tecla = cv2.waitKey(1)
     if tecla == 27:  # ESC

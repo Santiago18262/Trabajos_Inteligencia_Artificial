@@ -1,88 +1,106 @@
-import cv2
+# entrenar_fer2013_generators.py
 import os
-import numpy as np
 import time
 from collections import Counter
-from sklearn.model_selection import train_test_split
+
+import numpy as np  # Esta librería es para manejo de arreglos
 from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.utils.class_weight import compute_class_weight  # Para calcular pesos de clase
 
 import tensorflow as tf
 from tensorflow.keras import layers, models
-from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
-#---------------------------------------------------------------------
-# RUTA DONDE ESTÁN LAS CARPETAS DE EMOCIONES
-#---------------------------------------------------------------------
-ruta_datos = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\Data'
-lista_emociones = sorted(os.listdir(ruta_datos))
-print("Emociones detectadas:", lista_emociones)
+# ---------------------------------------------------------------------
+# 1. RUTA DONDE ESTÁ EL DATASET FER2013 EN CARPETAS
+# ---------------------------------------------------------------------
+ruta_datos = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\dataset\train'
 
-TAMANO_IMAGEN = 224  # Tamaño requerido por VGG16
+# TAMANO_IMAGEN = 224   # tamaño requerido por VGG16 en teoría
+TAMANO_IMAGEN = 48      # tamaño original del dataset FER2013 (más rápido de entrenar)
+BATCH_SIZE = 32         # tamaño de lote para los generadores
+EPOCHS_FASE1 = 3
+EPOCHS_FASE2 = 3
+VALID_SPLIT = 0.2       # 20% validación
 
-datos_imagenes = []
-lista_etiquetas = []
-
-print("Cargando imágenes...")
-
-#---------------------------------------------------------------------
-# CARGA DE IMÁGENES Y ETIQUETAS
-#---------------------------------------------------------------------
-for indice_etiqueta, emocion in enumerate(lista_emociones):
-    ruta_emocion = os.path.join(ruta_datos, emocion)
-
-    for nombre_archivo in os.listdir(ruta_emocion):
-        ruta_archivo = os.path.join(ruta_emocion, nombre_archivo)
-
-        imagen = cv2.imread(ruta_archivo)
-        if imagen is None:
-            continue
-
-        imagen = cv2.resize(imagen, (TAMANO_IMAGEN, TAMANO_IMAGEN))
-        imagen = cv2.cvtColor(imagen, cv2.COLOR_BGR2RGB)
-
-        datos_imagenes.append(imagen)
-        lista_etiquetas.append(indice_etiqueta)
-
-datos_imagenes = np.array(datos_imagenes, dtype="float32")
-lista_etiquetas = np.array(lista_etiquetas)
-
-#---------------------------------------------------------------------
-# DEPURACIÓN DE CLASES
-#---------------------------------------------------------------------
-print("Total de imágenes cargadas:", len(datos_imagenes))
-print("Conteo por clase:", Counter(lista_etiquetas))
-print("Orden de emociones:", lista_emociones)
-
-#---------------------------------------------------------------------
-# PREPROCESAMIENTO VGG16
-#---------------------------------------------------------------------
-datos_imagenes = preprocess_input(datos_imagenes)
-
-cantidad_clases = len(lista_emociones)
-etiquetas_onehot = to_categorical(lista_etiquetas, num_classes=cantidad_clases)
-
-# División de datos
-X_entrenamiento, X_validacion, y_entrenamiento, y_validacion = train_test_split(
-    datos_imagenes, etiquetas_onehot, test_size=0.2, random_state=42, stratify=lista_etiquetas
-)
-
-#---------------------------------------------------------------------
-# DATA AUGMENTATION
-#---------------------------------------------------------------------
-augmentador = ImageDataGenerator(
+# ---------------------------------------------------------------------
+# 2. DATA AUGMENTATION + GENERADORES (SIN CARGAR TODO EN RAM)
+# ---------------------------------------------------------------------
+# preprocess_input de VGG16 se aplica dentro del generador
+datagen_entrenamiento = ImageDataGenerator(
+    preprocessing_function=preprocess_input,
     rotation_range=20,
     width_shift_range=0.1,
     height_shift_range=0.1,
     zoom_range=0.1,
-    horizontal_flip=True
+    horizontal_flip=True,
+    validation_split=VALID_SPLIT
 )
-augmentador.fit(X_entrenamiento)
 
-#---------------------------------------------------------------------
-# MODELO BASE VGG16 (FASE 1: CAPAS CONGELADAS)
-#---------------------------------------------------------------------
+# Generador de entrenamiento
+train_gen = datagen_entrenamiento.flow_from_directory(
+    ruta_datos,
+    target_size=(TAMANO_IMAGEN, TAMANO_IMAGEN),
+    batch_size=BATCH_SIZE,
+    class_mode='categorical',
+    subset='training',
+    shuffle=True
+)
+
+# Generador de validación (IMPORTANTE: shuffle=False para matriz de confusión)
+val_gen = datagen_entrenamiento.flow_from_directory(
+    ruta_datos,
+    target_size=(TAMANO_IMAGEN, TAMANO_IMAGEN),
+    batch_size=BATCH_SIZE,
+    class_mode='categorical',
+    subset='validation',
+    shuffle=False
+)
+
+# ---------------------------------------------------------------------
+# 3. INFO DE CLASES
+# ---------------------------------------------------------------------
+# class_indices es un diccionario {nombre_clase: índice}
+class_indices = train_gen.class_indices
+# Lo convertimos en lista ordenada por índice: [ "Angry", "Disgust", ... ]
+lista_emociones = sorted(class_indices, key=lambda k: class_indices[k])
+cantidad_clases = len(lista_emociones)
+
+print("Emociones detectadas en el dataset:", lista_emociones)
+print("Total imágenes entrenamiento:", train_gen.samples)
+print("Total imágenes validación:", val_gen.samples)
+
+# Imprimir conteo por clase usando el generador de entrenamiento
+conteo_clases = Counter(train_gen.classes)
+print("\nConteo por clase (índice -> cantidad) en TRAIN:")
+for idx, cant in conteo_clases.items():
+    print(f"{idx} ({lista_emociones[idx]}): {cant}")
+
+print("\nOrden de emociones (índice -> nombre):")
+for idx, emo in enumerate(lista_emociones):
+    print(f"{idx}: {emo}")
+
+# ---------------------------------------------------------------------
+# 3.1 CÁLCULO DE PESOS DE CLASE (PARA MANEJAR DESBALANCE)
+# ---------------------------------------------------------------------
+# Esto hace que todas las clases "pesen" similar en el loss,
+# aunque haya menos imágenes de disgust/sad/etc.
+class_weights = compute_class_weight(
+    class_weight="balanced",
+    classes=np.unique(train_gen.classes),
+    y=train_gen.classes
+)
+
+# Lo pasamos a diccionario {índice_clase: peso}
+class_weights_dict = {i: float(class_weights[i]) for i in range(len(class_weights))}
+print("\nPesos de clase calculados (class_weight='balanced'):")
+for idx, peso in class_weights_dict.items():
+    print(f"Clase {idx} ({lista_emociones[idx]}): {peso:.3f}")
+
+# ---------------------------------------------------------------------
+# 4. MODELO BASE VGG16 (FASE 1: CAPAS CONGELADAS)
+# ---------------------------------------------------------------------
 modelo_base = VGG16(
     weights='imagenet',
     include_top=False,
@@ -93,7 +111,7 @@ modelo_base = VGG16(
 for capa in modelo_base.layers:
     capa.trainable = False
 
-# CAPAS FINALES
+# CAPAS FINALES PERSONALIZADAS
 entrada_red = modelo_base.output
 entrada_red = layers.Flatten()(entrada_red)
 entrada_red = layers.Dense(256, activation='relu')(entrada_red)
@@ -108,23 +126,25 @@ modelo.compile(
     metrics=['accuracy']
 )
 
-print(modelo.summary())
+print("\nResumen del modelo:")
+modelo.summary()
 
-#---------------------------------------------------------------------
-# ENTRENAMIENTO FASE 1 (CAPAS CONGELADAS)
-#---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# 5. ENTRENAMIENTO FASE 1 (CAPAS CONGELADAS)
+# ---------------------------------------------------------------------
 print("\nEntrenando modelo (FASE 1 - capas congeladas)...")
 inicio_tiempo = time.time()
 
 historial_1 = modelo.fit(
-    augmentador.flow(X_entrenamiento, y_entrenamiento, batch_size=32),
-    epochs=5,
-    validation_data=(X_validacion, y_validacion)
+    train_gen,
+    epochs=EPOCHS_FASE1,
+    validation_data=val_gen,
+    class_weight=class_weights_dict  # <-- USAMOS PESOS DE CLASE
 )
 
-#---------------------------------------------------------------------
-# FASE 2 - FINE TUNING (DESCONGELAR ÚLTIMAS 10 CAPAS)
-#---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# 6. FASE 2 - FINE TUNING (DESCONGELAR ÚLTIMAS 10 CAPAS)
+# ---------------------------------------------------------------------
 print("\nAplicando Fine-Tuning (descongelando últimas 10 capas)...")
 
 for capa in modelo_base.layers[-10:]:
@@ -137,20 +157,27 @@ modelo.compile(
 )
 
 historial_2 = modelo.fit(
-    augmentador.flow(X_entrenamiento, y_entrenamiento, batch_size=32),
-    epochs=5,
-    validation_data=(X_validacion, y_validacion)
+    train_gen,
+    epochs=EPOCHS_FASE2,
+    validation_data=val_gen,
+    class_weight=class_weights_dict  # <-- TAMBIÉN AQUÍ
 )
 
 tiempo_total = time.time() - inicio_tiempo
 print(f"\nEntrenamiento completado en {tiempo_total:.2f} segundos.")
 
-#---------------------------------------------------------------------
-# EVALUACIÓN DETALLADA
-#---------------------------------------------------------------------
-predicciones_val = modelo.predict(X_validacion)
-clases_reales = np.argmax(y_validacion, axis=1)
+# ---------------------------------------------------------------------
+# 7. EVALUACIÓN DETALLADA (MATRIZ DE CONFUSIÓN + REPORTE)
+# ---------------------------------------------------------------------
+print("\nGenerando predicciones en el conjunto de validación...")
+
+# Reiniciamos el generador para recorrer todas las imágenes en orden
+val_gen.reset()
+predicciones_val = modelo.predict(val_gen)
 clases_predichas = np.argmax(predicciones_val, axis=1)
+
+# Etiquetas reales del generador
+clases_reales = val_gen.classes
 
 print("\nMatriz de confusión:")
 print(confusion_matrix(clases_reales, clases_predichas))
@@ -158,12 +185,11 @@ print(confusion_matrix(clases_reales, clases_predichas))
 print("\nReporte detallado de clasificación:")
 print(classification_report(clases_reales, clases_predichas, target_names=lista_emociones))
 
-#---------------------------------------------------------------------
-# GUARDAR MODELO Y CLASES
-#---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# 8. GUARDAR MODELO Y CLASES (PARA EL SCRIPT DE LA CÁMARA)
+# ---------------------------------------------------------------------
 modelo.save("modelo_emociones_vgg16.h5")
-np.save("nombres_clases.npy", np.array(lista_emociones))
+np.save("label_names.npy", np.array(lista_emociones))
 
-print("\nModelo guardado como modelo_emociones_vgg16.h5")
-print("Clases guardadas como nombres_clases.npy")
-  
+print("\n✅ Modelo guardado como modelo_emociones_vgg16.h5")  # .h5 guarda arquitectura + pesos
+print("✅ Clases guardadas como label_names.npy")            # .npy guarda el arreglo de nombres
