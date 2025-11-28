@@ -8,13 +8,18 @@ from tensorflow.keras.applications.vgg16 import preprocess_input
 from pathlib import Path
 
 # ----------------------------------------------------------------------
-# CARGAR MODELO Y CLASES
+# CARGAR MODELO Y CLASES (RUTA COMPLETA CORREGIDA)
 # ----------------------------------------------------------------------
-modelo = load_model("modelo_emociones_vgg16.h5")
-nombres_clases = np.load("label_names.npy").tolist()
+modelo = load_model(
+    r"C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\modelo_emociones_resnet50.keras"
+)
 
-TAMANO_IMAGEN = 48          # o 224, según como entrenaste
-ANCHO_EMOJI = 120           # tamaño del emoji (cuadrado)
+nombres_clases = np.load(
+    r"C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\label_names.npy"
+).tolist()
+
+TAMANO_IMAGEN = 48
+ANCHO_EMOJI = 120
 
 clasificador_rostros = cv2.CascadeClassifier(
     cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
@@ -23,204 +28,145 @@ clasificador_rostros = cv2.CascadeClassifier(
 camara = None
 camara_activa = False
 
+
 # ----------------------------------------------------------------------
-# CARGAR EMOJI SEGÚN EMOCIÓN
+# CARGAR EMOJI
 # ----------------------------------------------------------------------
 def cargar_emoji(nombre_emocion):
-    directorio_base = Path(__file__).parent
-    directorio_emojis = directorio_base / "Emojis"
-
-    if not directorio_emojis.exists():
-        return None
-
+    directorio = Path(
+        r"C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\Emojis"
+    )
     nombre = nombre_emocion.lower()
-    extensiones = [".png", ".jpg", ".jpeg", ".bmp"]
 
-    for ext in extensiones:
-        archivo = directorio_emojis / f"{nombre}{ext}"
-        if archivo.exists():
-            img = cv2.imread(str(archivo))
-            if img is not None:
-                return img
+    for ext in (".png", ".jpg", ".jpeg", ".bmp"):
+        ruta = directorio / f"{nombre}{ext}"
+        if ruta.exists():
+            img = cv2.imread(str(ruta))
+            return img
     return None
 
+
 # ----------------------------------------------------------------------
-# PREPROCESAR ROSTRO PARA LA CNN
+# PREPROCESAR ROSTRO
 # ----------------------------------------------------------------------
 def preprocesar_rostro(rostro_bgr, tamano=224):
-    rostro_redimensionado = cv2.resize(rostro_bgr, (tamano, tamano),
-                                       interpolation=cv2.INTER_CUBIC)
-    rostro_rgb = cv2.cvtColor(rostro_redimensionado, cv2.COLOR_BGR2RGB)
-    rostro_rgb = rostro_rgb.astype("float32")
+    rostro_red = cv2.resize(rostro_bgr, (tamano, tamano))
+    rostro_rgb = cv2.cvtColor(rostro_red, cv2.COLOR_BGR2RGB).astype("float32")
     rostro_rgb = np.expand_dims(rostro_rgb, axis=0)
     return preprocess_input(rostro_rgb)
 
+
 # ----------------------------------------------------------------------
-# MOSTRAR IMAGEN EN TKINTER (CON ESCALADO)
+# MOSTRAR IMAGEN
 # ----------------------------------------------------------------------
-def mostrar_imagen(imagen_bgr, emocion, probabilidad):
-    # Escala controlada para que se vea bien en la ventana
+def mostrar_imagen(imagen_bgr, emocion, prob):
     max_w, max_h = 820, 470
     h, w = imagen_bgr.shape[:2]
     escala = min(max_w / w, max_h / h, 1.8)
 
     if escala != 1.0:
-        nuevo_w = int(w * escala)
-        nuevo_h = int(h * escala)
-        imagen_bgr = cv2.resize(imagen_bgr, (nuevo_w, nuevo_h),
-                                interpolation=cv2.INTER_AREA)
+        imagen_bgr = cv2.resize(imagen_bgr, (int(w * escala), int(h * escala)))
 
-    imagen_rgb = cv2.cvtColor(imagen_bgr, cv2.COLOR_BGR2RGB)
-    imagen_pil = Image.fromarray(imagen_rgb)
-    imagen_tk = ImageTk.PhotoImage(imagen_pil)
+    img_rgb = cv2.cvtColor(imagen_bgr, cv2.COLOR_BGR2RGB)
+    tk_img = ImageTk.PhotoImage(Image.fromarray(img_rgb))
 
-    label_imagen.config(image=imagen_tk)
-    label_imagen.image = imagen_tk
+    label_imagen.config(image=tk_img)
+    label_imagen.image = tk_img
 
     if emocion is None:
         label_resultado.config(text="No se detecta rostro")
     else:
-        label_resultado.config(
-            text=f"Emoción detectada: {emocion} ({probabilidad*100:.2f}%)"
-        )
+        label_resultado.config(text=f"Emoción detectada: {emocion} ({prob*100:.2f}%)")
+
 
 # ----------------------------------------------------------------------
-# FUNCIÓN AUXILIAR: CREAR PANEL CON EMOJI CUADRADO
+# EMOJI CUADRADO
 # ----------------------------------------------------------------------
-def crear_panel_emoji(emoji_original, alto_panel):
-    panel_vacio = np.zeros((alto_panel, ANCHO_EMOJI, 3), dtype=np.uint8)
+def crear_panel_emoji(emoji, alto_total):
+    panel = np.zeros((alto_total, ANCHO_EMOJI, 3), dtype=np.uint8)
 
-    if emoji_original is None:
-        return panel_vacio
+    if emoji is None:
+        return panel
 
-    # Hacer el emoji cuadrado
-    alto, ancho = emoji_original.shape[:2]
-    tam = max(alto, ancho)
-    cuadrado = np.ones((tam, tam, 3), dtype=np.uint8) * 255  # fondo blanco
+    h, w = emoji.shape[:2]
+    tam = max(h, w)
+    cuadrado = np.ones((tam, tam, 3), np.uint8) * 255
 
-    y_offset = (tam - alto) // 2
-    x_offset = (tam - ancho) // 2
-    cuadrado[y_offset:y_offset+alto, x_offset:x_offset+ancho] = emoji_original
+    y0 = (tam - h) // 2
+    x0 = (tam - w) // 2
+    cuadrado[y0:y0+h, x0:x0+w] = emoji
 
-    # Redimensionar a ANCHO_EMOJI x ANCHO_EMOJI
-    emoji_red = cv2.resize(
-        cuadrado,
-        (ANCHO_EMOJI, ANCHO_EMOJI),
-        interpolation=cv2.INTER_CUBIC
-    )
-
-    panel = panel_vacio.copy()
-    offset = (alto_panel - ANCHO_EMOJI) // 2
-    panel[offset:offset+ANCHO_EMOJI, :] = emoji_red
+    emoji_red = cv2.resize(cuadrado, (ANCHO_EMOJI, ANCHO_EMOJI))
+    offset = (alto_total - ANCHO_EMOJI) // 2
+    panel[offset:offset + ANCHO_EMOJI, :] = emoji_red
 
     return panel
 
-# ----------------------------------------------------------------------
-# PROCESAR FOTOGRAMA DE CÁMARA (SIN PADDING)
-# ----------------------------------------------------------------------
-def procesar_fotograma(fotograma):
-    """
-    Aquí ya NO agregamos marco/padding para alejar la imagen.
-    Trabajamos directo con el frame de la cámara.
-    """
 
-    gris = cv2.cvtColor(fotograma, cv2.COLOR_BGR2GRAY)
-    rostros = clasificador_rostros.detectMultiScale(
-        gris, scaleFactor=1.3, minNeighbors=5
-    )
+# ----------------------------------------------------------------------
+# PROCESAR FOTO DE CAMARA (SIN PADDING)
+# ----------------------------------------------------------------------
+def procesar_fotograma(frame):
+    gris = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    rostros = clasificador_rostros.detectMultiScale(gris, 1.3, 5)
 
-    panel_vacio = np.zeros((fotograma.shape[0], ANCHO_EMOJI, 3), dtype=np.uint8)
+    panel_vacio = np.zeros((frame.shape[0], ANCHO_EMOJI, 3), dtype=np.uint8)
 
     if len(rostros) == 0:
-        return np.hstack([fotograma, panel_vacio]), None, 0.0
+        return np.hstack([frame, panel_vacio]), None, 0.0
 
-    (x, y, w, h) = rostros[0]
-    rostro = fotograma[y:y+h, x:x+w]
+    x, y, w, h = rostros[0]
+    rostro = frame[y:y+h, x:x+w]
 
     pred = modelo.predict(preprocesar_rostro(rostro, TAMANO_IMAGEN), verbose=0)
-    idx = int(np.argmax(pred))
+    idx = np.argmax(pred)
     emocion = nombres_clases[idx]
     prob = float(pred[0][idx])
 
-    # Marco + texto (verde)
-    cv2.rectangle(fotograma, (x, y), (x+w, y+h), (0, 255, 0), 3)
-    cv2.putText(
-        fotograma,
-        f"{emocion} ({prob*100:.1f}%)",
-        (x, y - 15),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.7,
-        (0, 255, 0),
-        2
-    )
+    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 3)
+    cv2.putText(frame, f"{emocion} ({prob*100:.1f}%)",
+                (x, y - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-    # Emoji cuadrado
-    emoji = cargar_emoji(emocion)
-    panel_emoji = crear_panel_emoji(emoji, fotograma.shape[0])
+    panel_emoji = crear_panel_emoji(cargar_emoji(emocion), frame.shape[0])
+    return np.hstack([frame, panel_emoji]), emocion, prob
 
-    return np.hstack([fotograma, panel_emoji]), emocion, prob
 
 # ----------------------------------------------------------------------
-# PROCESAR IMAGEN DESDE ARCHIVO (CON PADDING Y ESCALADO)
+# PROCESAR IMAGEN DESDE ARCHIVO (CON PADDING)
 # ----------------------------------------------------------------------
 def procesar_imagen_archivo(img):
-    # Si es pequeña (FER2013 ~48x48), escalarla primero
     if max(img.shape[:2]) < 180:
         factor = 260 / max(img.shape[:2])
-        img = cv2.resize(
-            img,
-            (int(img.shape[1] * factor), int(img.shape[0] * factor)),
-            interpolation=cv2.INTER_CUBIC
-        )
+        img = cv2.resize(img, (int(img.shape[1]*factor), int(img.shape[0]*factor)))
 
-    # Padding para que el marco no se corte (solo en IMÁGENES DE ARCHIVO)
-    padding = 40
-    img = cv2.copyMakeBorder(
-        img, padding, padding, padding, padding,
-        cv2.BORDER_CONSTANT, value=(0, 0, 0)   # padding negro
-    )
+    img = cv2.copyMakeBorder(img, 40, 40, 40, 40,
+                             cv2.BORDER_CONSTANT, value=(0, 0, 0))
 
     gris = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    rostros = clasificador_rostros.detectMultiScale(
-        gris, scaleFactor=1.1, minNeighbors=4, minSize=(30, 30)
-    )
+    rostros = clasificador_rostros.detectMultiScale(gris, 1.1, 4)
 
-    panel_vacio = np.zeros((img.shape[0], ANCHO_EMOJI, 3), dtype=np.uint8)
-
-    # Si no detecta rostro, usar toda la imagen
     if len(rostros) == 0:
         rostro = img
     else:
-        (x, y, w, h) = rostros[0]
+        x, y, w, h = rostros[0]
         rostro = img[y:y+h, x:x+w]
 
     pred = modelo.predict(preprocesar_rostro(rostro, TAMANO_IMAGEN), verbose=0)
-    idx = int(np.argmax(pred))
+    idx = np.argmax(pred)
     emocion = nombres_clases[idx]
     prob = float(pred[0][idx])
 
-    # Marco + texto solo si hubo detección
     if len(rostros) != 0:
-        (x, y, w, h) = rostros[0]
         cv2.rectangle(img, (x, y), (x+w, y+h), (0, 255, 0), 3)
-        cv2.putText(
-            img,
-            f"{emocion} ({prob*100:.1f}%)",
-            (x, y - 15),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.7,
-            (0, 255, 0),
-            2
-        )
+        cv2.putText(img, f"{emocion} ({prob*100:.1f}%)",
+                    (x, y - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-    # Emoji cuadrado
-    emoji = cargar_emoji(emocion)
-    panel_emoji = crear_panel_emoji(emoji, img.shape[0])
-
+    panel_emoji = crear_panel_emoji(cargar_emoji(emocion), img.shape[0])
     return np.hstack([img, panel_emoji]), emocion, prob
 
+
 # ----------------------------------------------------------------------
-# MANEJO DE CÁMARA
+# CÁMARA
 # ----------------------------------------------------------------------
 def actualizar_camara():
     if not camara_activa or camara is None:
@@ -236,6 +182,7 @@ def actualizar_camara():
 
     ventana.after(30, actualizar_camara)
 
+
 def iniciar_camara():
     global camara, camara_activa
     detener_camara()
@@ -249,6 +196,7 @@ def iniciar_camara():
     camara_activa = True
     actualizar_camara()
 
+
 def detener_camara():
     global camara, camara_activa
     camara_activa = False
@@ -256,14 +204,14 @@ def detener_camara():
         camara.release()
         camara = None
 
+
 # ----------------------------------------------------------------------
-# CARGAR IMAGEN DESDE ARCHIVO
+# CARGAR IMAGEN
 # ----------------------------------------------------------------------
 def cargar_imagen():
     detener_camara()
 
     ruta = filedialog.askopenfilename(
-        title="Selecciona una imagen",
         filetypes=[("Imágenes", "*.jpg;*.jpeg;*.png")]
     )
     if not ruta:
@@ -277,28 +225,24 @@ def cargar_imagen():
     resultado, emocion, prob = procesar_imagen_archivo(img)
     mostrar_imagen(resultado, emocion, prob)
 
+
 # ----------------------------------------------------------------------
-# CIERRE LIMPIO
+# INTERFAZ TKINTER
 # ----------------------------------------------------------------------
 def on_closing():
     detener_camara()
     ventana.destroy()
 
-# ----------------------------------------------------------------------
-# INTERFAZ TKINTER
-# ----------------------------------------------------------------------
+
 ventana = tk.Tk()
 ventana.title("Reconocimiento de Emociones")
 ventana.geometry("950x650")
 
-frame_botones = tk.Frame(ventana)
-frame_botones.pack(pady=10)
+frame_btn = tk.Frame(ventana)
+frame_btn.pack(pady=10)
 
-btn_img = tk.Button(frame_botones, text="Cargar Imagen", command=cargar_imagen)
-btn_img.grid(row=0, column=0, padx=5)
-
-btn_cam = tk.Button(frame_botones, text="Iniciar Webcam", command=iniciar_camara)
-btn_cam.grid(row=0, column=1, padx=5)
+tk.Button(frame_btn, text="Cargar Imagen", command=cargar_imagen).grid(row=0, column=0, padx=5)
+tk.Button(frame_btn, text="Iniciar Webcam", command=iniciar_camara).grid(row=0, column=1, padx=5)
 
 label_imagen = tk.Label(ventana)
 label_imagen.pack(pady=10)
