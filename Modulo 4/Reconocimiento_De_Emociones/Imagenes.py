@@ -28,6 +28,3 @@ for emocion, cantidad in conteo_emociones.items():
     print(f'Número de imágenes para la emoción {emocion}: {cantidad}')
 
 
-import numpy as np
-labels = np.load("label_names.npy")
-print(labels)

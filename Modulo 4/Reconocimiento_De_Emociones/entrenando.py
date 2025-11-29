@@ -16,27 +16,27 @@ from tensorflow.keras.models import load_model
 # ---------------------------------------------------------------------
 # 1. RUTAS DE TU DATASET (Train / Test)
 # ---------------------------------------------------------------------
-ruta_train = r'C:\USB Santiago\dataset2\Train'
-ruta_test  = r'C:\USB Santiago\dataset2\Test'
+ruta_entrenamiento = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\dataset2\train'
+ruta_prueba        = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\dataset2\test'
 
-TAMANO_IMAGEN = 112      # <<< SUBIMOS A 112x112 PARA MÁS DETALLE
-BATCH_SIZE = 32
-EPOCHS_FASE1 = 12
-EPOCHS_FASE2 = 10
+TAMANO_IMAGEN   = 112      # <<< SUBIMOS A 112x112 PARA MÁS DETALLE
+TAMANO_LOTE     = 32
+EPOCAS_FASE1    = 6
+EPOCAS_FASE2    = 3
 
 # ---------------------------------------------------------------------
 # 1.1 PREPROCESAMIENTO
 # ---------------------------------------------------------------------
-def custom_preprocess(img):
-    img = tf.cast(img, tf.float32)
-    img = preprocess_input(img)   # normalización ResNet50
-    return img
+def preprocesamiento_personalizado(imagen):
+    imagen = tf.cast(imagen, tf.float32)
+    imagen = preprocess_input(imagen)   # normalización ResNet50
+    return imagen
 
 # ---------------------------------------------------------------------
 # 2. DATA AUGMENTATION
 # ---------------------------------------------------------------------
-datagen_train = ImageDataGenerator(
-    preprocessing_function=custom_preprocess,
+generador_aumento_entrenamiento = ImageDataGenerator(
+    preprocessing_function=preprocesamiento_personalizado,
     rotation_range=25,
     width_shift_range=0.20,
     height_shift_range=0.20,
@@ -44,22 +44,22 @@ datagen_train = ImageDataGenerator(
     horizontal_flip=True
 )
 
-datagen_test = ImageDataGenerator(
-    preprocessing_function=custom_preprocess
+generador_aumento_prueba = ImageDataGenerator(
+    preprocessing_function=preprocesamiento_personalizado
 )
 
-train_gen = datagen_train.flow_from_directory(
-    ruta_train,
+generador_entrenamiento = generador_aumento_entrenamiento.flow_from_directory(
+    ruta_entrenamiento,
     target_size=(TAMANO_IMAGEN, TAMANO_IMAGEN),
-    batch_size=BATCH_SIZE,
+    batch_size=TAMANO_LOTE,
     class_mode='categorical',
     shuffle=True
 )
 
-test_gen = datagen_test.flow_from_directory(
-    ruta_test,
+generador_prueba = generador_aumento_prueba.flow_from_directory(
+    ruta_prueba,
     target_size=(TAMANO_IMAGEN, TAMANO_IMAGEN),
-    batch_size=BATCH_SIZE,
+    batch_size=TAMANO_LOTE,
     class_mode='categorical',
     shuffle=False
 )
@@ -67,42 +67,44 @@ test_gen = datagen_test.flow_from_directory(
 # ---------------------------------------------------------------------
 # 3. INFO DE CLASES + PESOS AUTOMÁTICOS + AJUSTE
 # ---------------------------------------------------------------------
-class_indices = train_gen.class_indices
-lista_emociones = sorted(class_indices, key=lambda k: class_indices[k])
+indices_clases = generador_entrenamiento.class_indices
+lista_emociones = sorted(indices_clases, key=lambda k: indices_clases[k])
 
 print("\nClases detectadas:")
-for name, idx in class_indices.items():
-    print(f"{idx}: {name}")
+for nombre, indice in indices_clases.items():
+    print(f"{indice}: {nombre}")
 
-conteo = Counter(train_gen.classes)
+conteo_clases = Counter(generador_entrenamiento.classes)
 print("\nConteo en Train:")
-for idx, cant in conteo.items():
-    print(f"{lista_emociones[idx]}: {cant}")
+for indice, cantidad in conteo_clases.items():
+    print(f"{lista_emociones[indice]}: {cantidad}")
 
 # Pesos base balanceados
 pesos_base = compute_class_weight(
     class_weight='balanced',
-    classes=np.unique(train_gen.classes),
-    y=train_gen.classes
+    classes=np.unique(generador_entrenamiento.classes),
+    y=generador_entrenamiento.classes
 )
-class_weights_dict = {i: float(pesos_base[i]) for i in range(len(pesos_base))}
+pesos_clase_diccionario = {i: float(pesos_base[i]) for i in range(len(pesos_base))}
 
 # Ajuste manual según tu matriz:
 # Alegria y Enojo estaban "dominando"
 # Neutral y Tristeza tenían bajo recall → los potenciamos
-idx_alegria  = lista_emociones.index("Alegria")
-idx_enojo    = lista_emociones.index("Enojo")
-idx_neutral  = lista_emociones.index("Neutral")
-idx_tristeza = lista_emociones.index("Tristeza")
+indice_alegria  = lista_emociones.index("Alegria")
+indice_enojo    = lista_emociones.index("Enojo")
+indice_neutral  = lista_emociones.index("Neutral")
+indice_tristeza = lista_emociones.index("Tristeza")
+indice_sorpresa = lista_emociones.index("Sorpresa")
 
-class_weights_dict[idx_alegria]  *= 0.9
-class_weights_dict[idx_enojo]    *= 0.95
-class_weights_dict[idx_neutral]  *= 1.2
-class_weights_dict[idx_tristeza] *= 1.25
+pesos_clase_diccionario[indice_alegria]  *= 0.9
+pesos_clase_diccionario[indice_enojo]    *= 0.95
+pesos_clase_diccionario[indice_neutral]  *= 1.2
+pesos_clase_diccionario[indice_tristeza] *= 1.25
+pesos_clase_diccionario[indice_sorpresa] *= 0.9
 
 print("\nPesos finales usados:")
-for i, w in class_weights_dict.items():
-    print(f"{i} ({lista_emociones[i]}): {w:.3f}")
+for i, peso in pesos_clase_diccionario.items():
+    print(f"{i} ({lista_emociones[i]}): {peso:.3f}")
 
 # ---------------------------------------------------------------------
 # 4. MODELO BASE: RESNET50
@@ -113,8 +115,8 @@ modelo_base = ResNet50(
     input_shape=(TAMANO_IMAGEN, TAMANO_IMAGEN, 3)
 )
 
-for layer in modelo_base.layers:
-    layer.trainable = False  # fase 1 congelada
+for capa in modelo_base.layers:
+    capa.trainable = False  # fase 1 congelada
 
 # CAPAS FINALES
 x = layers.GlobalAveragePooling2D()(modelo_base.output)
@@ -147,10 +149,10 @@ callbacks = [
 # ---------------------------------------------------------------------
 print("\nEntrenando FASE 1...")
 modelo.fit(
-    train_gen,
-    validation_data=test_gen,
-    epochs=EPOCHS_FASE1,
-    class_weight=class_weights_dict,
+    generador_entrenamiento,
+    validation_data=generador_prueba,
+    epochs=EPOCAS_FASE1,
+    class_weight=pesos_clase_diccionario,
     callbacks=callbacks
 )
 
@@ -161,8 +163,8 @@ print("\nFine-Tuning...")
 
 modelo_base.trainable = True
 # descongelamos más capas (últimas 80) para que se adapte mejor
-for layer in modelo_base.layers[:-80]:
-    layer.trainable = False
+for capa in modelo_base.layers[:-80]:
+    capa.trainable = False
 
 modelo.compile(
     optimizer=tf.keras.optimizers.Adam(1e-5),
@@ -171,10 +173,10 @@ modelo.compile(
 )
 
 modelo.fit(
-    train_gen,
-    validation_data=test_gen,
-    epochs=EPOCHS_FASE2,
-    class_weight=class_weights_dict,
+    generador_entrenamiento,
+    validation_data=generador_prueba,
+    epochs=EPOCAS_FASE2,
+    class_weight=pesos_clase_diccionario,
     callbacks=callbacks
 )
 
@@ -182,23 +184,23 @@ modelo.fit(
 # 8. EVALUACIÓN
 # ---------------------------------------------------------------------
 print("\nCargando mejor modelo...")
-mejor = load_model("mejor_resnet50.keras")
+mejor_modelo = load_model("mejor_resnet50.keras")
 
-test_gen.reset()
-pred = mejor.predict(test_gen)
-pred_clases = np.argmax(pred, axis=1)
-real_clases = test_gen.classes
+generador_prueba.reset()
+predicciones = mejor_modelo.predict(generador_prueba)
+clases_predichas = np.argmax(predicciones, axis=1)
+clases_reales = generador_prueba.classes
 
 print("\nMatriz de confusión:")
-print(confusion_matrix(real_clases, pred_clases))
+print(confusion_matrix(clases_reales, clases_predichas))
 
 print("\nReporte de clasificación:")
-print(classification_report(real_clases, pred_clases, target_names=lista_emociones))
+print(classification_report(clases_reales, clases_predichas, target_names=lista_emociones))
 
 # ---------------------------------------------------------------------
 # 9. GUARDAR MODELO Y CLASES
 # ---------------------------------------------------------------------
-mejor.save("modelo_emociones_resnet50.keras")
+mejor_modelo.save("modelo_emociones_resnet50.keras")
 np.save("label_names.npy", np.array(lista_emociones))
 
 print("\n✅ Modelo guardado como modelo_emociones_resnet50.keras")
