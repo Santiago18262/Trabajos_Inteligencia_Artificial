@@ -19,10 +19,10 @@ from tensorflow.keras.models import load_model
 ruta_entrenamiento = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\dataset2\train'
 ruta_prueba        = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\dataset2\test'
 
-TAMANO_IMAGEN   = 112      # <<< SUBIMOS A 112x112 PARA MÁS DETALLE
-TAMANO_LOTE     = 32
-EPOCAS_FASE1    = 6
-EPOCAS_FASE2    = 3
+TAMANO_IMAGEN   = 96      # para que sea mas rapido el entrenamiento
+TAMANO_LOTE     = 32   # tamaño de lote
+EPOCAS_FASE1    = 15 
+EPOCAS_FASE2    = 12  
 
 # ---------------------------------------------------------------------
 # 1.1 PREPROCESAMIENTO
@@ -96,11 +96,12 @@ indice_neutral  = lista_emociones.index("Neutral")
 indice_tristeza = lista_emociones.index("Tristeza")
 indice_sorpresa = lista_emociones.index("Sorpresa")
 
-pesos_clase_diccionario[indice_alegria]  *= 0.9
-pesos_clase_diccionario[indice_enojo]    *= 0.95
-pesos_clase_diccionario[indice_neutral]  *= 1.2
-pesos_clase_diccionario[indice_tristeza] *= 1.25
-pesos_clase_diccionario[indice_sorpresa] *= 0.9
+# Ajuste más equilibrado de pesos
+pesos_clase_diccionario[indice_alegria]  *= 0.95   # casi neutro 
+pesos_clase_diccionario[indice_enojo]    *= 1.35   # reforzamos enojo 
+pesos_clase_diccionario[indice_neutral]  *= 1.05   # ligero ajuste
+pesos_clase_diccionario[indice_tristeza] *= 0.90   # ya no tan castigado
+pesos_clase_diccionario[indice_sorpresa] *= 1.20   # reforzada, pero no exagerada
 
 print("\nPesos finales usados:")
 for i, peso in pesos_clase_diccionario.items():
@@ -162,8 +163,8 @@ modelo.fit(
 print("\nFine-Tuning...")
 
 modelo_base.trainable = True
-# descongelamos más capas (últimas 80) para que se adapte mejor
-for capa in modelo_base.layers[:-80]:
+# descongelamos más capas (últimas 50) para que se adapte mejor
+for capa in modelo_base.layers[:-50]:
     capa.trainable = False
 
 modelo.compile(

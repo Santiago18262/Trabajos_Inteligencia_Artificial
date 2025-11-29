@@ -18,7 +18,7 @@ nombres_clases = np.load(
     r"C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\label_names.npy"
 ).tolist()
 
-TAMANO_IMAGEN = 112
+TAMANO_IMAGEN = 96
 ANCHO_EMOJI = 120
 
 clasificador_rostros = cv2.CascadeClassifier(
