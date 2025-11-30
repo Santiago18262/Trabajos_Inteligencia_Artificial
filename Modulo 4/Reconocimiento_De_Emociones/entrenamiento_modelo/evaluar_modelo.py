@@ -1,41 +1,33 @@
-# evaluar_modelo.py
-
 import os
 import numpy as np
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from sklearn.metrics import confusion_matrix, classification_report
+from tensorflow.keras.models import load_model # Para cargar tu .keras
+from tensorflow.keras.preprocessing.image import ImageDataGenerator # Generador de imágenes
+from sklearn.metrics import confusion_matrix, classification_report # Métricas de evaluación
 
 # ============================================================
 # 1. CONFIGURACIÓN
 # ============================================================
 
-# Ruta a tu modelo .keras
+# Ruta de tu modelo entrenado
 RUTA_MODELO = r"C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\modelos\modelo_emociones_resnet50.keras"
 
-# Ruta al directorio de TEST (carpeta con subcarpetas por emoción)
+# Ruta de las imágenes de prueba
 RUTA_TEST = r"C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\datasets\dataset(AffectNet)\test"
 
-# Tamaño de imagen que usaste al entrenar
-TAMANO_IMAGEN = (96, 96)  # <-- cambia a (224, 224) si tu ResNet trabajó a 224x224
+TAMANO_IMAGEN = (96, 96)  # Debe ser igual al tamaño usado en entrenamiento
+COLOR_MODO = "rgb"        # Modo de color (3 canales)
+BATCH_SIZE = 32           # Imágenes procesadas por lote
 
-# Modo de color que usaste al entrenar
-COLOR_MODO = "rgb"  # <-- pon "rgb" si entrenaste en color
-
-# Batch size (no afecta el resultado, solo la velocidad)
-BATCH_SIZE = 32
-
-# Si usaste preprocess_input (ResNet50, VGG16, etc.), deberías usarlo aquí también.
-# Descomenta estas líneas y úsalo en el ImageDataGenerator en lugar de rescale.
+# Importar preprocesamiento específico de ResNet50
 from tensorflow.keras.applications.resnet50 import preprocess_input
-USAR_PREPROCESS_INPUT = True  # pon False si SOLO usaste rescale=1./255
+USAR_PREPROCESS_INPUT = True  # True para usar la función de ResNet, False para rescale normal
 
 # ============================================================
 # 2. CARGAR MODELO
 # ============================================================
 
 print("Cargando modelo desde:", RUTA_MODELO)
-modelo = load_model(RUTA_MODELO)
+modelo = load_model(RUTA_MODELO) # Carga la arquitectura y pesos en memoria
 print("Modelo cargado correctamente.\n")
 
 # ============================================================
@@ -43,29 +35,24 @@ print("Modelo cargado correctamente.\n")
 # ============================================================
 
 if USAR_PREPROCESS_INPUT:
-    test_datagen = ImageDataGenerator(
-        preprocessing_function=preprocess_input
-    )
+    test_datagen = ImageDataGenerator(preprocessing_function=preprocess_input) # Preprocesamiento avanzado
 else:
-    test_datagen = ImageDataGenerator(
-        rescale=1.0 / 255.0
-    )
+    test_datagen = ImageDataGenerator(rescale=1.0 / 255.0) # Normalización simple (0 a 1)
 
 test_generator = test_datagen.flow_from_directory(
     RUTA_TEST,
-    target_size=TAMANO_IMAGEN,
+    target_size=TAMANO_IMAGEN, # Redimensiona las fotos
     color_mode=COLOR_MODO,
     batch_size=BATCH_SIZE,
     class_mode='categorical',
-    shuffle=False  # MUY IMPORTANTE para que y_true coincida con las predicciones
+    shuffle=False  # No desordenar para poder comparar
 )
 
-# Guardamos el mapeo índice -> etiqueta
+# Guardar nombres de las clases
 class_indices = test_generator.class_indices
-# Ordered by index (0,1,2,...)
-labels = [None] * len(class_indices)
+labels = [None] * len(class_indices) # Crear lista vacía
 for nombre_clase, idx in class_indices.items():
-    labels[idx] = nombre_clase
+    labels[idx] = nombre_clase # Asignar nombre al índice correcto
 
 print("\nClases detectadas (en orden de índice):")
 for i, nombre in enumerate(labels):
@@ -76,41 +63,33 @@ for i, nombre in enumerate(labels):
 # ============================================================
 
 print("\nGenerando predicciones sobre el conjunto de prueba...")
-predicciones = modelo.predict(test_generator, verbose=1)
+predicciones = modelo.predict(test_generator, verbose=1) # El modelo predice probabilidades
 
-# y_pred: clase predicha (argmax)
-y_pred = np.argmax(predicciones, axis=1)
-
-# y_true: clases reales del generador
-y_true = test_generator.classes
+y_pred = np.argmax(predicciones, axis=1) # Obtiene el índice de la clase más probable
+y_true = test_generator.classes          # Obtiene las etiquetas reales (correctas)
 
 # ============================================================
 # 5. MATRIZ DE CONFUSIÓN Y REPORTE
 # ============================================================
 
-from sklearn.metrics import confusion_matrix, classification_report
-
 print("\nMatriz de Confusión:")
-mat_conf = confusion_matrix(y_true, y_pred)
+mat_conf = confusion_matrix(y_true, y_pred) # Cruza datos reales vs predichos
 print(mat_conf)
 
 print("\nReporte de clasificación:")
-print(classification_report(y_true, y_pred, target_names=labels))
+print(classification_report(y_true, y_pred, target_names=labels)) # Muestra precisión, recall y F1
 
 # ============================================================
-# 6. (OPCIONAL) MOSTRAR MATRIZ DE CONFUSIÓN BONITA
+# 6. MOSTRAR MATRIZ DE CONFUSIÓN (GRÁFICA)
 # ============================================================
-# Descomenta esta parte si quieres ver la matriz como imagen de calor
 
+import matplotlib.pyplot as plt 
+import seaborn as sns 
 
-import matplotlib.pyplot as plt # Libreria para graficas
-import seaborn as sns # Libreria para graficas avanzadas
-
-plt.figure(figsize=(8, 6))
-sns.heatmap(mat_conf, annot=True, fmt="d", xticklabels=labels, yticklabels=labels)
+plt.figure(figsize=(8, 6)) # Tamaño de la figura
+sns.heatmap(mat_conf, annot=True, fmt="d", xticklabels=labels, yticklabels=labels, cmap="Blues") # Mapa de calor azul
 plt.xlabel("Predicción")
 plt.ylabel("Real")
 plt.title("Matriz de Confusión")
-plt.tight_layout()
-plt.show()
-
+plt.tight_layout() # Ajusta márgenes
+plt.show() # Muestra la ventana
