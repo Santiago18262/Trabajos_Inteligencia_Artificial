@@ -16,13 +16,13 @@ from tensorflow.keras.models import load_model
 # ---------------------------------------------------------------------
 # 1. RUTAS DE TU DATASET (Train / Test)
 # ---------------------------------------------------------------------
-ruta_entrenamiento = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\dataset2\train'
-ruta_prueba        = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\dataset2\test'
+ruta_entrenamiento = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\dataset(AffectNet)\train'
+ruta_prueba        = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\dataset2(AffectNet)\test'
 
 TAMANO_IMAGEN   = 96      # para que sea mas rapido el entrenamiento
 TAMANO_LOTE     = 32   # tamaño de lote
-EPOCAS_FASE1    = 15 
-EPOCAS_FASE2    = 12  
+EPOCAS_FASE1    = 20 
+EPOCAS_FASE2    = 15  
 
 # ---------------------------------------------------------------------
 # 1.1 PREPROCESAMIENTO
@@ -97,11 +97,11 @@ indice_tristeza = lista_emociones.index("Tristeza")
 indice_sorpresa = lista_emociones.index("Sorpresa")
 
 # Ajuste más equilibrado de pesos
-pesos_clase_diccionario[indice_alegria]  *= 0.95   # casi neutro 
-pesos_clase_diccionario[indice_enojo]    *= 1.35   # reforzamos enojo 
-pesos_clase_diccionario[indice_neutral]  *= 1.05   # ligero ajuste
-pesos_clase_diccionario[indice_tristeza] *= 0.90   # ya no tan castigado
-pesos_clase_diccionario[indice_sorpresa] *= 1.20   # reforzada, pero no exagerada
+pesos_clase_diccionario[indice_alegria]  *= 1.20   # casi neutro se cambio de 0.95 a 1.10 
+pesos_clase_diccionario[indice_enojo]    *= 1.30   # reforzamos enojo 
+pesos_clase_diccionario[indice_neutral]  *= 1.70   # ligero ajuste se cambio de 1.05 a 1.10
+pesos_clase_diccionario[indice_tristeza] *= 0.80   # ya no tan castigado
+pesos_clase_diccionario[indice_sorpresa] *= 1.10   # reforzada, pero no exagerada de 1.20 a
 
 print("\nPesos finales usados:")
 for i, peso in pesos_clase_diccionario.items():

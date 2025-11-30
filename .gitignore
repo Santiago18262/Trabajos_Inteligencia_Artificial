@@ -2,8 +2,14 @@ __pycache__/
 *.pyc
 *.pyo
 
-dataset/
-
-dataset2/
-
+dataset(Fer2013)/
+dataset(AffectNet)/
 emojis/
+node_modules/
+prueba2/
+prueba3/
+prueba4/
+
+package-lock.json
+package.json
+

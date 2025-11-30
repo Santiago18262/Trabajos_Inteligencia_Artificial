@@ -1,7 +1,7 @@
 import os
 
 # Define el directorio principal donde están las carpetas de emociones
-directorio = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\dataset2\train'  # Cambia esto por el path de tu dataset
+directorio = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\dataset(AffectNet)\train'  # Cambia esto por el path de tu dataset
 
 # Define las extensiones de las imágenes que deseas contar
 extensiones_imagenes = ('.jpg', '.jpeg', '.png', '.bmp')
@@ -28,3 +28,7 @@ for emocion, cantidad in conteo_emociones.items():
     print(f'Número de imágenes para la emoción {emocion}: {cantidad}')
 
 
+# mostrar label_names.npy
+import numpy as np
+label_names = np.load(r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\label_names.npy')
+print("\nLabel names:", label_names)
