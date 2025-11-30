@@ -16,8 +16,8 @@ from tensorflow.keras.models import load_model
 # ---------------------------------------------------------------------
 # 1. RUTAS DE TU DATASET (Train / Test)
 # ---------------------------------------------------------------------
-ruta_entrenamiento = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\dataset(AffectNet)\train'
-ruta_prueba        = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\dataset2(AffectNet)\test'
+ruta_entrenamiento = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\modelos\dataset(AffectNet)\train'
+ruta_prueba        = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\modelos\dataset2(AffectNet)\test'
 
 TAMANO_IMAGEN   = 96      # para que sea mas rapido el entrenamiento
 TAMANO_LOTE     = 32   # tamaño de lote

@@ -11,10 +11,10 @@ from sklearn.metrics import confusion_matrix, classification_report
 # ============================================================
 
 # Ruta a tu modelo .keras
-RUTA_MODELO = r"C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\modelo_emociones_resnet50.keras"
+RUTA_MODELO = r"C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\modelos\modelo_emociones_resnet50.keras"
 
 # Ruta al directorio de TEST (carpeta con subcarpetas por emoción)
-RUTA_TEST = r"C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\dataset2\test"
+RUTA_TEST = r"C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\datasets\dataset(AffectNet)\test"
 
 # Tamaño de imagen que usaste al entrenar
 TAMANO_IMAGEN = (96, 96)  # <-- cambia a (224, 224) si tu ResNet trabajó a 224x224
