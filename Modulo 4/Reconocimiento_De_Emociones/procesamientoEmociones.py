@@ -1,8 +1,8 @@
-import cv2
-import numpy as np
-from tensorflow.keras.models import load_model
-from tensorflow.keras.applications.resnet50 import preprocess_input  # Importante: Preprocesamiento de ResNet50
-from pathlib import Path
+import cv2  # Para usar la cámara, detectar rostros y dibujar en la imagen
+import numpy as np  # Para manejar las imágenes como matrices numéricas
+from tensorflow.keras.models import load_model  # Para cargar el modelo (.keras) entrenado
+from tensorflow.keras.applications.resnet50 import preprocess_input  # Ajusta los colores para que el modelo entienda la foto
+from pathlib import Path  # Para encontrar archivos (emojis) en tus carpetas sin errores
 
 # ----------------------------------------------------------------------
 # CARGAR MODELO Y CLASES
@@ -26,7 +26,6 @@ ANCHO_EMOJI = 120    # Ancho del panel lateral para mostrar emojis
 clasificador_rostros = cv2.CascadeClassifier(
     cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
 )
-
 
 # ----------------------------------------------------------------------
 # CARGAR EMOJI
@@ -56,7 +55,7 @@ def preprocesar_rostro(rostro_bgr, tamano=224):
     return preprocess_input(rostro_rgb) # Aplica normalización de ResNet
 
 # ----------------------------------------------------------------------
-# EMOJI CUADRADO
+# EMOJI
 # ----------------------------------------------------------------------
 def crear_panel_emoji(emoji, alto_total):
     # Crea un panel negro vacío del alto de la imagen principal
@@ -125,7 +124,7 @@ def predecir_emocion(rostro_bgr):
             if p_tristeza >= 0.50 and diferencia_tristeza_neutral >= 0.10:
                 idx = idx_tristeza
             else:
-                idx = idx_neutral # Si es dudoso, mejor decir Neutral
+                idx = idx_neutral # Si es dudoso, mejor se muestra Neutral
         else:
             # 3) Para el resto (Alegría, Enojo, Sorpresa), confiamos en el modelo
             idx = idx_max
@@ -136,7 +135,7 @@ def predecir_emocion(rostro_bgr):
     return emocion, prob
 
 # ----------------------------------------------------------------------
-# PROCESAR FOTO DE CAMARA (SIN PADDING EXTRA)
+# PROCESAR FOTO DE CAMARA 
 # ----------------------------------------------------------------------
 def procesar_fotograma(frame):
     gris = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) # Pasa a escala de grises

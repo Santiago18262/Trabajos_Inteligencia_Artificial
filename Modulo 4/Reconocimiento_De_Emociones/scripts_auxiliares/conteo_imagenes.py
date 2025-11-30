@@ -1,4 +1,6 @@
 import os  # Librería para navegar por carpetas y archivos del sistema
+import numpy as np  # Librería matemática para manejar arrays y cargar archivos .npy
+import keras # O import tensorflow.keras as keras
 
 # Ruta del dataset de entrenamiento (usamos r'' para evitar errores con los backslash)
 directorio = r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\datasets\dataset(AffectNet)\train'
@@ -31,9 +33,23 @@ for emocion, cantidad in conteo_emociones.items():
 #  Verificación de etiquetas de emociones
 # ---------------------------------------------------------
 
-import numpy as np  # Librería matemática para manejar arrays y cargar archivos .npy
-
-# Carga el archivo binario que contiene los nombres de las clases guardadas
+# Carga el archivo que contiene los nombres de las clases guardadas
 label_names = np.load(r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\modelos\label_names.npy')
 
 print("\nLabel names:", label_names)  # Muestra en consola la lista de etiquetas cargadas
+
+# ---------------------------------------------------------
+#  Verificación de modelo
+# ---------------------------------------------------------
+
+# 1. Cargar el modelo
+modelo = keras.saving.load_model(r'C:\USB Santiago\Semestre 7 Tec\Inteligencia Artificial\Trabajos_Inteligencia_Artificial\Modulo 4\Reconocimiento_De_Emociones\modelos\modelo_emociones_resnet50.keras')
+
+# 2. Ver la arquitectura en texto (capas y número de parámetros)
+modelo.summary()
+
+# Ver los pesos de todas las capas
+for capa in modelo.layers:
+    pesos = capa.get_weights()
+    print(f"Capa: {capa.name}")
+    print(pesos) # Esto imprimirá arrays de numpy con los números

@@ -1,4 +1,4 @@
-import tkinter as tk 
+import tkinter as tk  # Para crear la interfaz 
 from tkinter import filedialog, messagebox # Para abrir archivos y mostrar alertas
 from PIL import Image, ImageTk # Para manejar imágenes en la interfaz
 import cv2 # OpenCV para video e imágenes
@@ -37,7 +37,6 @@ def mostrar_imagen(imagen_bgr, emocion, prob):
         # Muestra emoción y porcentaje de certeza
         label_resultado.config(text=f"Emoción detectada: {emocion} ({prob*100:.2f}%)")
 
-
 # ----------------------------------------------------------------------
 # CÁMARA
 # ----------------------------------------------------------------------
@@ -58,7 +57,6 @@ def actualizar_camara():
 
     ventana.after(30, actualizar_camara) # Se vuelve a llamar a sí misma en 30ms (bucle)
 
-
 def iniciar_camara():
     global camara, camara_activa
     detener_camara() # Asegura que no haya otra cámara abierta antes
@@ -73,14 +71,12 @@ def iniciar_camara():
     camara_activa = True
     actualizar_camara() # Inicia el bucle de lectura
 
-
 def detener_camara():
     global camara, camara_activa
     camara_activa = False # Baja la bandera de actividad
     if camara is not None:
         camara.release() # Libera el recurso de hardware
         camara = None
-
 
 # ----------------------------------------------------------------------
 # CARGAR IMAGEN DESDE ARCHIVO

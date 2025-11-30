@@ -1,8 +1,10 @@
-import os
-import numpy as np
-from tensorflow.keras.models import load_model # Para cargar tu .keras
-from tensorflow.keras.preprocessing.image import ImageDataGenerator # Generador de imágenes
-from sklearn.metrics import confusion_matrix, classification_report # Métricas de evaluación
+import os  # Permite al código navegar por las carpetas para buscar las fotos
+import numpy as np  # Necesario para convertir las imágenes en números que la IA entienda
+
+from tensorflow.keras.models import load_model  # Abre el archivo .keras guardado para usarlo
+from tensorflow.keras.preprocessing.image import ImageDataGenerator  # Carga las imágenes de prueba y ajusta sus valores 
+
+from sklearn.metrics import confusion_matrix, classification_report  # Herramientas estadísticas para calificar qué tan bien funciona tu modelo
 
 # ============================================================
 # 1. CONFIGURACIÓN
@@ -87,7 +89,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns 
 
 plt.figure(figsize=(8, 6)) # Tamaño de la figura
-sns.heatmap(mat_conf, annot=True, fmt="d", xticklabels=labels, yticklabels=labels, cmap="Blues") # Mapa de calor azul
+sns.heatmap(mat_conf, annot=True, fmt="d", xticklabels=labels, yticklabels=labels, cmap="Blues") # Mapa con tonalidades azules
 plt.xlabel("Predicción")
 plt.ylabel("Real")
 plt.title("Matriz de Confusión")

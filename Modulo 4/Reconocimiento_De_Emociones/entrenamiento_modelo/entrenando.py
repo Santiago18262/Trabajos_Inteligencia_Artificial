@@ -1,17 +1,17 @@
-import os
-import time
-from collections import Counter
+import os  # Manejo de carpetas y rutas de archivos del sistema
+import time  # Para medir el tiempo que se tarda en entrenar
+from collections import Counter  # Cuenta elementos rápido como cuantas imaganes hay por clase
 
-import numpy as np
-from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.utils.class_weight import compute_class_weight
+import numpy as np  # Maneja las matrices de números (píxeles de imágenes)
+from sklearn.metrics import classification_report, confusion_matrix  # Genera métricas de desempeño y tabla de errores
+from sklearn.utils.class_weight import compute_class_weight  # Equilibra los pesos si una clase tiene pocas fotos
 
-import tensorflow as tf
-from tensorflow.keras import layers, models
-from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
-from tensorflow.keras.models import load_model
+import tensorflow as tf  # La librería base de Inteligencia Artificial de Google
+from tensorflow.keras import layers, models  # "Ladrillos" (capas) y base para construir tu propia red
+from tensorflow.keras.applications.resnet50 import ResNet50, preprocess_input  # Modelo pre-entrenado y su adaptador de imágenes
+from tensorflow.keras.preprocessing.image import ImageDataGenerator  # Crea variantes de las imagenes (zoom, rotación) para entrenar mejor
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint  # Automatización: Parar, ajustar velocidad y guardar
+from tensorflow.keras.models import load_model  # Función para abrir el archivo .keras guardado
 
 # ---------------------------------------------------------------------
 # 1. RUTAS DE TU DATASET (Train / Test)
@@ -44,7 +44,7 @@ generador_aumento_entrenamiento = ImageDataGenerator(
     horizontal_flip=True      # Invierte la imagen horizontalmente (espejo)
 )
 
-# Para prueba NO aumentamos datos, solo aplicamos el preprocesamiento base
+# Para prueba no aumentamos datos, solo aplicamos el preprocesamiento base
 generador_aumento_prueba = ImageDataGenerator(
     preprocessing_function=preprocesamiento_personalizado
 )
@@ -68,7 +68,7 @@ generador_prueba = generador_aumento_prueba.flow_from_directory(
 )
 
 # ---------------------------------------------------------------------
-# 3. INFO DE CLASES + PESOS AUTOMÁTICOS + AJUSTE MANUAL
+# 3. INFORMACION DE CLASES + PESOS AUTOMÁTICOS + AJUSTE MANUAL
 # ---------------------------------------------------------------------
 indices_clases = generador_entrenamiento.class_indices
 lista_emociones = sorted(indices_clases, key=lambda k: indices_clases[k])
@@ -100,7 +100,7 @@ indice_sorpresa = lista_emociones.index("Sorpresa")
 # Ajuste manual de prioridades (basado en tu análisis previo)
 pesos_clase_diccionario[indice_alegria]  *= 1.20   # Aumenta prioridad de Alegría
 pesos_clase_diccionario[indice_enojo]    *= 1.30   # Refuerza aprendizaje de Enojo
-pesos_clase_diccionario[indice_neutral]  *= 1.70   # Aumenta mucho Neutral (suele ser difícil)
+pesos_clase_diccionario[indice_neutral]  *= 1.70   # Aumenta mucho Neutral
 pesos_clase_diccionario[indice_tristeza] *= 0.80   # Reduce prioridad de Tristeza
 pesos_clase_diccionario[indice_sorpresa] *= 1.10   # Refuerza levemente Sorpresa
 
